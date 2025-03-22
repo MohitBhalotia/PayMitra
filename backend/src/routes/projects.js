@@ -294,6 +294,40 @@ router.post('/:id/milestones/:milestoneId/approve', auth, async (req, res) => {
   }
 });
 
+// Reject milestone
+router.post('/:id/milestones/:milestoneId/reject', auth, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const project = await Project.findById(req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    if (project.employer.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const milestone = project.milestones.id(req.params.milestoneId);
+    if (!milestone) {
+      return res.status(404).json({ message: 'Milestone not found' });
+    }
+
+    milestone.status = 'rejected';
+    milestone.feedback = {
+      comment: reason,
+      revisionRequested: true,
+      revisionNotes: reason
+    };
+
+    await project.save();
+    res.json(project);
+  } catch (error) {
+    console.error('Reject Milestone Error:', error);
+    res.status(500).json({ message: 'Failed to reject milestone' });
+  }
+});
+
 // Create dispute
 router.post('/:id/dispute', auth, async (req, res) => {
   try {

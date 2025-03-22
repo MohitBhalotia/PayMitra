@@ -37,25 +37,53 @@ const MilestoneManagement = ({ project, onMilestoneUpdate }) => {
   const handleApproveMilestone = async (milestoneId) => {
     setIsApproving(true);
     try {
-      const response = await fetch(`/api/milestones/${milestoneId}/approve`, {
+      const response = await fetch(`/api/projects/${project._id}/milestones/${milestoneId}/approve`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json',
         }
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to approve milestone');
+        throw new Error('Failed to approve milestone');
       }
 
-      toast.success('Milestone approved successfully!');
-      onMilestoneUpdate(data.milestone);
+      const updatedProject = await response.json();
+      const updatedMilestone = updatedProject.milestones.find(m => m._id === milestoneId);
+      onMilestoneUpdate(updatedMilestone);
+      toast.success('Milestone approved successfully');
     } catch (error) {
-      toast.error(error.message);
+      console.error('Error approving milestone:', error);
+      toast.error('Failed to approve milestone');
     } finally {
       setIsApproving(false);
+    }
+  };
+
+  const handleRejectMilestone = async (milestoneId) => {
+    try {
+      const reason = prompt('Please provide a reason for rejecting the milestone:');
+      if (!reason) return;
+
+      const response = await fetch(`/api/projects/${project._id}/milestones/${milestoneId}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reason })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to reject milestone');
+      }
+
+      const updatedProject = await response.json();
+      const updatedMilestone = updatedProject.milestones.find(m => m._id === milestoneId);
+      onMilestoneUpdate(updatedMilestone);
+      toast.success('Milestone rejected successfully');
+    } catch (error) {
+      console.error('Error rejecting milestone:', error);
+      toast.error('Failed to reject milestone');
     }
   };
 
@@ -86,14 +114,21 @@ const MilestoneManagement = ({ project, onMilestoneUpdate }) => {
                 {isSubmitting ? 'Submitting...' : 'Submit Milestone'}
               </button>
             )}
-            {milestone.status === 'submitted' && isEmployer && (
-              <button
-                onClick={() => handleApproveMilestone(milestone._id)}
-                disabled={isApproving}
-                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
-              >
-                {isApproving ? 'Approving...' : 'Approve Milestone'}
-              </button>
+            {isEmployer && milestone.status === 'submitted' && (
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => handleApproveMilestone(milestone._id)}
+                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => handleRejectMilestone(milestone._id)}
+                  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                >
+                  Reject
+                </button>
+              </div>
             )}
           </div>
           {milestone.status === 'submitted' && (
