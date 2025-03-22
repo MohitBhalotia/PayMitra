@@ -23,7 +23,7 @@ const projectSchema = new mongoose.Schema({
   applications: [
     {
       freelancer: {
-        type: mongoose.Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
         ref: "User",
         required: true,
       },
@@ -128,6 +128,10 @@ const projectSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  paymentIntentId: String,
+  escrowId: String
+}, {
+  timestamps: true
 });
 
 // Update the updatedAt timestamp before saving

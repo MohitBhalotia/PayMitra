@@ -149,14 +149,18 @@ router.post('/release-payment', auth, async (req, res) => {
       return res.status(400).json({ message: 'Freelancer has not connected their Stripe account' });
     }
 
-    // Check if freelancer's Stripe account has required capabilities
+    // Get the freelancer's Stripe account details
     const account = await stripe.accounts.retrieve(project.freelancer.stripeAccountId);
-    console.log('Stripe account capabilities:', account.capabilities);
+    console.log('Stripe account details:', {
+      id: account.id,
+      payoutsEnabled: account.payouts_enabled,
+      detailsSubmitted: account.details_submitted
+    });
 
-    if (!account.capabilities.transfers) {
+    if (!account.payouts_enabled) {
       return res.status(400).json({ 
-        message: 'Freelancer needs to complete their Stripe Connect onboarding to receive payments. Please ask them to complete the setup process.',
-        details: 'Transfers capability not enabled'
+        message: 'Freelancer needs to complete their bank account setup to receive payments',
+        details: 'Payouts not enabled'
       });
     }
 
@@ -185,18 +189,23 @@ router.post('/release-payment', auth, async (req, res) => {
       return res.status(400).json({ message: 'Milestone payment has already been processed' });
     }
 
-    console.log('Creating transfer to Stripe account:', project.freelancer.stripeAccountId);
-    // Transfer the payment to the freelancer's Stripe account
-    const transfer = await stripe.transfers.create({
+    console.log('Creating payout to freelancer:', project.freelancer.stripeAccountId);
+    // Create a payout to the freelancer's connected bank account
+    const payout = await stripe.payouts.create({
       amount: Math.round(milestone.amount * 100), // Convert to cents
       currency: 'usd',
-      destination: project.freelancer.stripeAccountId
+      metadata: {
+        projectId: project._id,
+        milestoneId: milestone._id
+      }
+    }, {
+      stripeAccount: project.freelancer.stripeAccountId
     });
-    console.log('Transfer created:', transfer.id);
+    console.log('Payout created:', payout.id);
 
     // Update milestone status in both project and escrow
     milestone.status = 'paid';
-    milestone.paymentId = transfer.id;
+    milestone.paymentId = payout.id;
     await project.save();
 
     escrowMilestone.status = 'released';
@@ -207,7 +216,11 @@ router.post('/release-payment', auth, async (req, res) => {
 
     console.log('Milestone status updated to paid');
 
-    res.json({ message: 'Payment released successfully', transfer });
+    res.json({ 
+      message: 'Payment released successfully', 
+      payout,
+      bankAccount: account.external_accounts.data[0] // Return the bank account details
+    });
   } catch (error) {
     console.error('Payment Release Error:', {
       message: error.message,
@@ -252,6 +265,85 @@ router.post('/refund', auth, async (req, res) => {
   } catch (error) {
     console.error('Refund Error:', error);
     res.status(500).json({ message: 'Failed to process refund' });
+  }
+});
+
+// Add test balance to Stripe Connect account
+router.post('/add-test-balance', auth, async (req, res) => {
+  try {
+    const { amount = 1000 } = req.body; // Default to $10.00
+    console.log('Adding test balance:', { amount });
+    
+    const user = await User.findById(req.user.id);
+    if (!user || !user.stripeAccountId) {
+      return res.status(400).json({ message: 'User has no connected Stripe account' });
+    }
+
+    // Create a test payment intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // Convert to cents
+      currency: 'usd',
+      payment_method_types: ['card'],
+      metadata: {
+        userId: user._id,
+        type: 'test_balance'
+      }
+    });
+
+    // Create a test card payment method
+    const paymentMethod = await stripe.paymentMethods.create({
+      type: 'card',
+      card: {
+        number: '4242424242424242',
+        exp_month: 12,
+        exp_year: 2024,
+        cvc: '314',
+        billing_details: {
+          name: user.name,
+          email: user.email
+        }
+      }
+    });
+
+    // Attach the payment method to the payment intent
+    await stripe.paymentIntents.update(paymentIntent.id, {
+      payment_method: paymentMethod.id
+    });
+
+    // Capture the payment
+    const capturedPayment = await stripe.paymentIntents.capture(paymentIntent.id);
+
+    // Transfer the funds to the connected account
+    const transfer = await stripe.transfers.create({
+      amount: Math.round(amount * 100),
+      currency: 'usd',
+      destination: user.stripeAccountId,
+      transfer_group: `test_balance_${Date.now()}`
+    });
+
+    console.log('Test balance added:', {
+      paymentIntent: capturedPayment.id,
+      transfer: transfer.id,
+      amount
+    });
+
+    res.json({
+      message: 'Test balance added successfully',
+      amount,
+      paymentIntent: capturedPayment.id,
+      transfer: transfer.id
+    });
+  } catch (error) {
+    console.error('Add Test Balance Error:', {
+      message: error.message,
+      type: error.type,
+      code: error.code,
+      stack: error.stack
+    });
+    res.status(500).json({
+      message: 'Failed to add test balance',
+      error: error.message
+    });
   }
 });
 

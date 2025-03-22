@@ -15,6 +15,9 @@ const {
 const Project = require('../models/Project');
 const Escrow = require('../models/Escrow');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const upload = require('../middleware/upload');
+const { uploadToCloudinary } = require('../utils/cloudinary');
+const Application = require('../models/Application');
 
 // Validation middleware
 const projectValidation = [
@@ -131,27 +134,103 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Apply to project
-router.post('/:id/apply', auth, async (req, res) => {
+// Apply for a project
+router.post('/:projectId/apply', auth, upload.single('resume'), async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
-    
+    const project = await Project.findById(req.params.projectId);
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    if (project.freelancer) {
-      return res.status(400).json({ message: 'Project already assigned' });
+    // Check if user has already applied
+    const existingApplication = await Application.findOne({
+      project: req.params.projectId,
+      applicant: req.user.id
+    });
+
+    if (existingApplication) {
+      return res.status(400).json({ message: 'You have already applied for this project' });
     }
 
-    project.freelancer = req.user.id;
+    // Upload resume to Cloudinary
+    const resumeUrl = await uploadToCloudinary(req.file);
+
+    // Create new application
+    const application = new Application({
+      project: req.params.projectId,
+      applicant: req.user.id,
+      name: req.body.name,
+      skills: req.body.skills,
+      resumeUrl
+    });
+
+    await application.save();
+
+    // Add application to project
+    project.applications.push(application._id);
+    await project.save();
+
+    res.status(201).json(application);
+  } catch (error) {
+    console.error('Apply for Project Error:', error);
+    res.status(500).json({ message: 'Failed to apply for project' });
+  }
+});
+
+// Get project applications
+router.get('/:projectId/applications', auth, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Check if user is the employer
+    if (project.employer.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to view applications' });
+    }
+
+    const applications = await Application.find({ project: req.params.projectId })
+      .populate('applicant', 'name email');
+
+    res.json(applications);
+  } catch (error) {
+    console.error('Get Project Applications Error:', error);
+    res.status(500).json({ message: 'Failed to get project applications' });
+  }
+});
+
+// Accept application
+router.post('/:projectId/applications/:applicationId/approve', auth, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Check if user is the employer
+    if (project.employer.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to accept applications' });
+    }
+
+    const application = await Application.findById(req.params.applicationId);
+    if (!application) {
+      return res.status(404).json({ message: 'Application not found' });
+    }
+
+    // Update application status
+    application.status = 'accepted';
+    await application.save();
+
+    // Update project with selected freelancer
+    project.freelancer = application.applicant;
     project.status = 'in_progress';
     await project.save();
 
-    res.json(project);
+    res.json(application);
   } catch (error) {
-    console.error('Apply to Project Error:', error);
-    res.status(500).json({ message: 'Failed to apply to project' });
+    console.error('Accept Application Error:', error);
+    res.status(500).json({ message: 'Failed to accept application' });
   }
 });
 
