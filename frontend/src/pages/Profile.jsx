@@ -1,29 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { toast } from 'react-hot-toast';
-
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import { toast } from "react-hot-toast";
+import { Link } from "react-router-dom";
 const Profile = () => {
   const { user, updateProfile } = useAuth();
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    bio: '',
-    skills: '',
-    hourlyRate: '',
-    stripeAccountId: ''
+    name: "",
+    email: "",
+    bio: "",
+    skills: "",
+    hourlyRate: "",
+    stripeAccountId: "",
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (user) {
       setFormData({
-        name: user.name || '',
-        email: user.email || '',
-        bio: user.bio || '',
-        skills: user.skills?.join(', ') || '',
-        hourlyRate: user.hourlyRate || '',
-        stripeAccountId: user.stripeAccountId || ''
+        name: user.name || "",
+        email: user.email || "",
+        bio: user.bio || "",
+        skills: user.skills?.join(", ") || "",
+        hourlyRate: user.hourlyRate || "",
+        stripeAccountId: user.stripeAccountId || "",
       });
     }
   }, [user]);
@@ -32,22 +32,22 @@ const Profile = () => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setIsLoading(true);
 
     try {
       const profileData = {
         ...formData,
-        skills: formData.skills.split(',').map((skill) => skill.trim())
+        skills: formData.skills.split(",").map((skill) => skill.trim()),
       };
       await updateProfile(profileData);
-      toast.success('Profile updated successfully');
+      toast.success("Profile updated successfully");
     } catch (error) {
       setError(error.message);
       toast.error(error.message);
@@ -67,7 +67,14 @@ const Profile = () => {
   return (
     <div className="max-w-2xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Profile Settings</h2>
+        <div className="flex justify-between">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            Profile Settings
+          </h2>
+          <Link to={"/connect-stripe"}>
+            <button className="bg-violet-700 px-4 py-2 rounded-3xl text-white">Connect to Stripe</button>
+          </Link>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -123,7 +130,7 @@ const Profile = () => {
             />
           </div>
 
-          {user.role === 'freelancer' && (
+          {user.role === "freelancer" && (
             <>
               <div>
                 <label
@@ -192,7 +199,7 @@ const Profile = () => {
               disabled={isLoading}
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Saving...' : 'Save changes'}
+              {isLoading ? "Saving..." : "Save changes"}
             </button>
           </div>
         </form>
@@ -201,4 +208,4 @@ const Profile = () => {
   );
 };
 
-export default Profile; 
+export default Profile;
