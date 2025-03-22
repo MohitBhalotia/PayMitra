@@ -238,13 +238,12 @@ router.post('/:projectId/applications/:applicationId/approve', auth, async (req,
 // Submit milestone
 router.post('/:id/milestones/:milestoneId/submit', auth, async (req, res) => {
   try {
-    const { submission } = req.body;
     const project = await Project.findById(req.params.id);
-
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
 
+    // Check if user is the freelancer
     if (project.freelancer.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized' });
     }
@@ -254,11 +253,15 @@ router.post('/:id/milestones/:milestoneId/submit', auth, async (req, res) => {
       return res.status(404).json({ message: 'Milestone not found' });
     }
 
-    milestone.submission = submission;
-    milestone.status = 'submitted';
-    milestone.submittedAt = new Date();
-    await project.save();
+    if (milestone.status !== 'pending') {
+      return res.status(400).json({ message: 'Milestone cannot be submitted in its current state' });
+    }
 
+    milestone.status = 'submitted';
+    milestone.submission = req.body.submission;
+    milestone.submission.submittedAt = new Date();
+
+    await project.save();
     res.json(project);
   } catch (error) {
     console.error('Submit Milestone Error:', error);
@@ -270,11 +273,11 @@ router.post('/:id/milestones/:milestoneId/submit', auth, async (req, res) => {
 router.post('/:id/milestones/:milestoneId/approve', auth, async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
-
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
 
+    // Check if user is the employer
     if (project.employer.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized' });
     }
@@ -284,10 +287,14 @@ router.post('/:id/milestones/:milestoneId/approve', auth, async (req, res) => {
       return res.status(404).json({ message: 'Milestone not found' });
     }
 
+    if (milestone.status !== 'submitted') {
+      return res.status(400).json({ message: 'Milestone must be submitted before approval' });
+    }
+
     milestone.status = 'approved';
     milestone.approvedAt = new Date();
-    await project.save();
 
+    await project.save();
     res.json(project);
   } catch (error) {
     console.error('Approve Milestone Error:', error);
@@ -299,12 +306,16 @@ router.post('/:id/milestones/:milestoneId/approve', auth, async (req, res) => {
 router.post('/:id/milestones/:milestoneId/reject', auth, async (req, res) => {
   try {
     const { reason } = req.body;
-    const project = await Project.findById(req.params.id);
+    if (!reason) {
+      return res.status(400).json({ message: 'Rejection reason is required' });
+    }
 
+    const project = await Project.findById(req.params.id);
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
 
+    // Check if user is the employer
     if (project.employer.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized' });
     }
@@ -314,11 +325,14 @@ router.post('/:id/milestones/:milestoneId/reject', auth, async (req, res) => {
       return res.status(404).json({ message: 'Milestone not found' });
     }
 
+    if (milestone.status !== 'submitted') {
+      return res.status(400).json({ message: 'Milestone must be submitted before rejection' });
+    }
+
     milestone.status = 'rejected';
     milestone.feedback = {
       comment: reason,
-      revisionRequested: true,
-      revisionNotes: reason
+      rejectedAt: new Date()
     };
 
     await project.save();

@@ -74,9 +74,34 @@ const ProjectDetails = ({ project, onProjectUpdate }) => {
     }
   };
 
-  const isEmployer = user?.id === project.employer;
-  const isFreelancer = user?.id === project.freelancer;
+  const isEmployer = user?.role === 'employer' && project.employer?._id === user._id;
+  const isFreelancer = user?.role === 'freelancer' && project.freelancer?._id === user._id;
   const isAdmin = user?.role === 'admin';
+
+  // Add detailed debug logging
+  console.log('Debug ProjectDetails:', {
+    user: {
+      id: user?._id,
+      role: user?.role,
+      name: user?.name
+    },
+    project: {
+      id: project._id,
+      status: project.status,
+      employer: project.employer,
+      freelancer: project.freelancer
+    },
+    isEmployer,
+    employerId: project.employer?._id,
+    userId: user?._id,
+    employerMatch: user?._id === project.employer?._id,
+    statusMatch: ['active', 'in_progress'].includes(project.status)
+  });
+
+  // Add a check for employer data
+  if (!project.employer || !project.employer._id) {
+    console.error('Project employer data is not properly populated:', project.employer);
+  }
 
   return (
     <div className="space-y-8">
@@ -134,7 +159,7 @@ const ProjectDetails = ({ project, onProjectUpdate }) => {
         />
       )}
 
-      {isEmployer && project.status === 'active' && (
+      {isEmployer && ['active', 'in_progress'].includes(project.status) && (
         <div className="bg-white shadow rounded-lg p-6 mt-4">
           <h2 className="text-2xl font-bold mb-4">Project Actions</h2>
           <div className="space-y-4">

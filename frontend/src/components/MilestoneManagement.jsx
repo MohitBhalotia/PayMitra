@@ -9,28 +9,41 @@ const MilestoneManagement = ({ project, onMilestoneUpdate }) => {
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [selectedMilestone, setSelectedMilestone] = useState(null);
 
-  const handleSubmitMilestone = async (milestoneId, submission) => {
+  // Debug logging
+  console.log('MilestoneManagement Debug:', {
+    currentUser: user,
+    projectEmployer: project.employer,
+    isEmployer: user?._id === project.employer?._id,
+    projectStatus: project.status,
+    milestones: project.milestones
+  });
+
+  const handleSubmitMilestone = async (milestoneId) => {
     setIsSubmitting(true);
     try {
-      const response = await fetch(`/api/milestones/${milestoneId}/submit`, {
+      const response = await fetch(`/api/projects/${project._id}/milestones/${milestoneId}/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify(submission)
+        body: JSON.stringify({
+          submission: {
+            description: 'Milestone completed',
+            submittedAt: new Date()
+          }
+        })
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to submit milestone');
+        throw new Error('Failed to submit milestone');
       }
 
-      toast.success('Milestone submitted successfully!');
-      onMilestoneUpdate(data.milestone);
+      const updatedProject = await response.json();
+      onMilestoneUpdate(updatedProject);
+      toast.success('Milestone submitted successfully');
     } catch (error) {
-      toast.error(error.message);
+      console.error('Error submitting milestone:', error);
+      toast.error('Failed to submit milestone');
     } finally {
       setIsSubmitting(false);
     }
@@ -51,8 +64,7 @@ const MilestoneManagement = ({ project, onMilestoneUpdate }) => {
       }
 
       const updatedProject = await response.json();
-      const updatedMilestone = updatedProject.milestones.find(m => m._id === milestoneId);
-      onMilestoneUpdate(updatedMilestone);
+      onMilestoneUpdate(updatedProject);
       toast.success('Milestone approved successfully');
     } catch (error) {
       console.error('Error approving milestone:', error);
@@ -80,8 +92,7 @@ const MilestoneManagement = ({ project, onMilestoneUpdate }) => {
       }
 
       const updatedProject = await response.json();
-      const updatedMilestone = updatedProject.milestones.find(m => m._id === milestoneId);
-      onMilestoneUpdate(updatedMilestone);
+      onMilestoneUpdate(updatedProject);
       toast.success('Milestone rejected successfully');
     } catch (error) {
       console.error('Error rejecting milestone:', error);
@@ -120,95 +131,111 @@ const MilestoneManagement = ({ project, onMilestoneUpdate }) => {
     }
   };
 
-  const isEmployer = user?.id === project.employer;
-  const isFreelancer = user?.id === project.freelancer;
+  // Check if the current user is the employer or freelancer
+  const isEmployer = user?._id === project.employer?._id;
+  const isFreelancer = user?._id === project.freelancer?._id;
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Milestones</h2>
-      {project.milestones.map((milestone) => (
-        <div key={milestone._id} className="border rounded-lg p-6">
-          <div className="flex flex-col space-y-4">
-            <div>
-              <h3 className="text-xl font-semibold">{milestone.title}</h3>
-              <p className="text-gray-600 mt-1">{milestone.description}</p>
-              <div className="mt-2 text-sm text-gray-500">
-                <p>Amount: ${milestone.amount}</p>
-                <p>Deadline: {new Date(milestone.deadline).toLocaleDateString()}</p>
-                <p>Status: <span className={`font-semibold ${getStatusColor(milestone.status)}`}>{milestone.status}</span></p>
+      {project.milestones?.map((milestone) => {
+        // Debug log for each milestone
+        console.log('Milestone Debug:', {
+          id: milestone._id,
+          status: milestone.status,
+          isEmployer,
+          shouldShowButtons: milestone.status === 'submitted' && isEmployer
+        });
+
+        return (
+          <div key={milestone._id} className="border rounded-lg p-6">
+            <div className="flex flex-col space-y-4">
+              <div>
+                <h3 className="text-xl font-semibold">{milestone.title}</h3>
+                <p className="text-gray-600 mt-1">{milestone.description}</p>
+                <div className="mt-2 text-sm text-gray-500">
+                  <p>Amount: ${milestone.amount}</p>
+                  <p>Deadline: {new Date(milestone.deadline).toLocaleDateString()}</p>
+                  <p>Status: <span className={`font-semibold ${getStatusColor(milestone.status)}`}>{milestone.status}</span></p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                {/* Submit button for freelancer */}
+                {milestone.status === 'pending' && isFreelancer && (
+                  <button
+                    onClick={() => handleSubmitMilestone(milestone._id)}
+                    disabled={isSubmitting}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Submitting...' : 'Submit Milestone'}
+                  </button>
+                )}
+
+                {/* Approve/Reject buttons for employer */}
+                {milestone.status === 'submitted' && isEmployer && (
+                  <>
+                    <button
+                      onClick={() => handleApproveMilestone(milestone._id)}
+                      disabled={isApproving}
+                      className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {isApproving ? 'Approving...' : 'Approve'}
+                    </button>
+                    <button
+                      onClick={() => handleRejectMilestone(milestone._id)}
+                      className="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700"
+                    >
+                      Reject
+                    </button>
+                  </>
+                )}
+
+                {/* Dispute button */}
+                {(milestone.status === 'rejected' || milestone.status === 'disputed') &&
+                  (isEmployer || isFreelancer) && (
+                    <button
+                      onClick={() => handleRaiseDispute(milestone._id)}
+                      className="bg-yellow-600 text-white px-6 py-2 rounded hover:bg-yellow-700"
+                    >
+                      Raise Dispute
+                    </button>
+                  )}
               </div>
             </div>
 
-            <div className="flex justify-end gap-2">
-              {milestone.status === 'pending' && isFreelancer && (
-                <button
-                  onClick={() => handleSubmitMilestone(milestone._id, {})}
-                  disabled={isSubmitting}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Submitting...' : 'Submit Milestone'}
-                </button>
-              )}
-
-              {milestone.status === 'submitted' && isEmployer && (
-                <>
-                  <button
-                    onClick={() => handleApproveMilestone(milestone._id)}
-                    disabled={isApproving}
-                    className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 disabled:opacity-50"
-                  >
-                    {isApproving ? 'Approving...' : 'Approve'}
-                  </button>
-                  <button
-                    onClick={() => handleRejectMilestone(milestone._id)}
-                    className="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700"
-                  >
-                    Reject
-                  </button>
-                </>
-              )}
-
-              {(milestone.status === 'rejected' || milestone.status === 'disputed') &&
-                (isEmployer || isFreelancer) && (
-                  <button
-                    onClick={() => handleRaiseDispute(milestone._id)}
-                    className="bg-yellow-600 text-white px-6 py-2 rounded hover:bg-yellow-700"
-                  >
-                    Raise Dispute
-                  </button>
+            {/* Show submission details */}
+            {milestone.status === 'submitted' && (
+              <div className="mt-4">
+                <h4 className="font-semibold">Submission Details</h4>
+                <p className="text-gray-600">{milestone.submission?.description || 'No description provided'}</p>
+                {milestone.submission?.attachments?.length > 0 && (
+                  <div className="mt-2">
+                    <h5 className="font-medium">Attachments:</h5>
+                    <ul className="list-disc list-inside">
+                      {milestone.submission.attachments.map((attachment, index) => (
+                        <li key={index}>
+                          <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            {attachment.name}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
-            </div>
+              </div>
+            )}
+
+            {/* Show rejection feedback */}
+            {milestone.status === 'rejected' && milestone.feedback && (
+              <div className="mt-4 bg-red-50 p-4 rounded-md">
+                <h4 className="font-semibold text-red-700">Rejection Feedback</h4>
+                <p className="text-red-600 mt-1">{milestone.feedback.comment}</p>
+              </div>
+            )}
           </div>
-
-          {milestone.status === 'submitted' && (
-            <div className="mt-4">
-              <h4 className="font-semibold">Submission Details</h4>
-              <p className="text-gray-600">{milestone.submission?.description}</p>
-              {milestone.submission?.attachments?.length > 0 && (
-                <div className="mt-2">
-                  <h5 className="font-medium">Attachments:</h5>
-                  <ul className="list-disc list-inside">
-                    {milestone.submission.attachments.map((attachment, index) => (
-                      <li key={index}>
-                        <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                          {attachment.name}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-
-          {milestone.status === 'rejected' && milestone.feedback && (
-            <div className="mt-4 bg-red-50 p-4 rounded-md">
-              <h4 className="font-semibold text-red-700">Rejection Feedback</h4>
-              <p className="text-red-600 mt-1">{milestone.feedback.comment}</p>
-            </div>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

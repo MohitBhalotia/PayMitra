@@ -154,8 +154,8 @@ exports.getProjects = async (req, res) => {
 exports.getProject = async (req, res) => {
   try {
     const project = await Project.findById(req.params.projectId)
-      .populate('employer', 'name email')
-      .populate('freelancer', 'name email stripeAccountId');
+      .populate('employer', '_id name email')
+      .populate('freelancer', '_id name email stripeAccountId');
 
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
