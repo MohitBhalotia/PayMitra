@@ -20,7 +20,7 @@ const refundValidation = [
 ];
 
 // Routes
-router.post('/create-payment-intent', auth, paymentIntentValidation, createPaymentIntent);
+router.post('/create-payment-intent', auth,checkRole('employer'), paymentIntentValidation, createPaymentIntent);
 router.post('/webhook', express.raw({ type: 'application/json' }), handleWebhook);
 router.get('/history', auth, getPaymentHistory);
 router.post('/refund', auth, checkRole('admin'), refundValidation, refundPayment);

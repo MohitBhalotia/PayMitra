@@ -6,6 +6,7 @@ exports.createProject = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log("i am here");
       return res.status(400).json({ errors: errors.array() });
     }
 
@@ -148,7 +149,8 @@ exports.applyForProject = async (req, res) => {
 exports.submitMilestone = async (req, res) => {
   try {
     const project = await Project.findById(req.params.projectId);
-    const { milestoneId, description, attachments } = req.body;
+    const milestoneId=req.params.milestoneId;
+    const { description, attachments } = req.body;
 
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
@@ -183,7 +185,8 @@ exports.submitMilestone = async (req, res) => {
 exports.reviewMilestone = async (req, res) => {
   try {
     const project = await Project.findById(req.params.projectId);
-    const { milestoneId, status, feedback } = req.body;
+    const milestoneId=req.params.milestoneId;
+    const {  status, feedback } = req.body;
 
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });

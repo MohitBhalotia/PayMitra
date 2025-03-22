@@ -25,7 +25,7 @@ exports.createPaymentIntent = async (req, res) => {
     // Create payment intent
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(milestone.amount * 100), // Convert to cents
-      currency: 'usd',
+      currency: 'inr',
       metadata: {
         projectId,
         milestoneId

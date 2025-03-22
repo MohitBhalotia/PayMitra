@@ -44,8 +44,8 @@ const isProjectParticipant = async (req, res, next) => {
       return res.status(404).json({ message: 'Project not found.' });
     }
 
-    if (project.employer.toString() !== req.user._id.toString() && 
-        project.freelancer.toString() !== req.user._id.toString()) {
+    if (project.employer?._id.toString() !== req.user._id.toString() && 
+        project.freelancer?._id.toString() !== req.user._id.toString()) {
       return res.status(403).json({ 
         message: 'Access denied. You are not a participant of this project.' 
       });
