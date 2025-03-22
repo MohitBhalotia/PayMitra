@@ -9,6 +9,7 @@ const {
   addMessage,
   updateDisputeStatus
 } = require('../controllers/disputeController');
+const Dispute = require('../models/Dispute');
 
 // Validation middleware
 const disputeValidation = [
@@ -42,5 +43,71 @@ router.get('/', auth, getDisputes);
 router.get('/:disputeId', auth, getDispute);
 router.post('/:disputeId/messages', auth, messageValidation, addMessage);
 router.put('/:disputeId/status', auth, checkRole('admin'), statusValidation, updateDisputeStatus);
+
+// Create a new dispute
+router.post('/', auth, async (req, res) => {
+  try {
+    const dispute = new Dispute({
+      projectId: req.body.projectId,
+      raisedBy: req.user.id,
+      reason: req.body.reason,
+      description: req.body.description,
+      status: 'pending'
+    });
+    await dispute.save();
+    res.status(201).json(dispute);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get all disputes (admin only)
+router.get('/', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const disputes = await Dispute.find()
+      .populate('projectId')
+      .populate('raisedBy', 'name email');
+    res.json(disputes);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get dispute by ID
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const dispute = await Dispute.findById(req.params.id)
+      .populate('projectId')
+      .populate('raisedBy', 'name email');
+    if (!dispute) {
+      return res.status(404).json({ message: 'Dispute not found' });
+    }
+    res.json(dispute);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Update dispute status (admin only)
+router.patch('/:id/status', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const dispute = await Dispute.findById(req.params.id);
+    if (!dispute) {
+      return res.status(404).json({ message: 'Dispute not found' });
+    }
+    dispute.status = req.body.status;
+    dispute.resolution = req.body.resolution;
+    await dispute.save();
+    res.json(dispute);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 module.exports = router; 

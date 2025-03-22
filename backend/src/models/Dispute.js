@@ -1,13 +1,9 @@
 const mongoose = require('mongoose');
 
 const disputeSchema = new mongoose.Schema({
-  project: {
+  projectId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Project',
-    required: true
-  },
-  milestone: {
-    type: mongoose.Schema.Types.ObjectId,
     required: true
   },
   raisedBy: {
@@ -15,10 +11,10 @@ const disputeSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  type: {
+  reason: {
     type: String,
-    enum: ['quality', 'payment', 'deadline', 'other'],
-    required: true
+    required: true,
+    enum: ['payment', 'quality', 'communication', 'other']
   },
   description: {
     type: String,
@@ -26,33 +22,20 @@ const disputeSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['open', 'in_review', 'resolved', 'closed'],
-    default: 'open'
+    required: true,
+    enum: ['pending', 'in_review', 'resolved', 'rejected'],
+    default: 'pending'
   },
   resolution: {
-    decision: {
-      type: String,
-      enum: ['employer_favor', 'freelancer_favor', 'compromise', 'refund'],
-    },
-    notes: String,
-    resolvedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    },
-    resolvedAt: Date
+    type: String
   },
   messages: [{
     sender: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
+      ref: 'User'
     },
-    content: {
-      type: String,
-      required: true
-    },
-    attachments: [String],
-    createdAt: {
+    content: String,
+    timestamp: {
       type: Date,
       default: Date.now
     }
