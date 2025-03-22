@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 const paymentService = {
   // Initialize Stripe
@@ -224,6 +224,44 @@ const paymentService = {
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to approve milestone');
+    }
+  },
+
+  // Create a Stripe Connect account for a freelancer
+  createStripeConnectAccount: async () => {
+    try {
+      const response = await axios.post(`${API_URL}/stripe/connect`, {}, {
+        withCredentials: true
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to create Stripe Connect account');
+    }
+  },
+
+  // Get the status of a freelancer's Stripe Connect account
+  getStripeConnectStatus: async () => {
+    try {
+      const response = await axios.get(`${API_URL}/stripe/connect/status`, {
+        withCredentials: true
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to get Stripe Connect status');
+    }
+  },
+
+  // Release payment to freelancer
+  releasePayment: async (projectId, milestoneId) => {
+    try {
+      const response = await axios.post(
+        `${API_URL}/stripe/release-payment`,
+        { projectId, milestoneId },
+        { withCredentials: true }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to release payment');
     }
   }
 };

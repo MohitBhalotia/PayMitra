@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import  paymentService  from '../services/paymentService';
+import paymentService from '../services/paymentService';
 import { toast } from 'react-hot-toast';
 
 const ProjectsList = () => {
@@ -161,8 +161,8 @@ const ProjectsList = () => {
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {projects.map((project) => (
           <Link
-            key={project.id}
-            to={`/projects/${project.id}`}
+            key={project._id}
+            to={`/projects/${project._id}`}
             className="block bg-white shadow rounded-lg hover:shadow-md transition-shadow duration-200"
           >
             <div className="p-6">
@@ -172,12 +172,12 @@ const ProjectsList = () => {
                 </h3>
                 <span
                   className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${project.status === 'open'
-                      ? 'bg-green-100 text-green-800'
-                      : project.status === 'in_progress'
-                        ? 'bg-blue-100 text-blue-800'
-                        : project.status === 'completed'
-                          ? 'bg-gray-100 text-gray-800'
-                          : 'bg-red-100 text-red-800'
+                    ? 'bg-green-100 text-green-800'
+                    : project.status === 'in_progress'
+                      ? 'bg-blue-100 text-blue-800'
+                      : project.status === 'completed'
+                        ? 'bg-gray-100 text-gray-800'
+                        : 'bg-red-100 text-red-800'
                     }`}
                 >
                   {project.status?.replace('_', ' ')}

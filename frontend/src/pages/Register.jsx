@@ -47,7 +47,8 @@ const Register = () => {
     setIsLoading(true);
 
     try {
-      await register(formData.name, formData.email, formData.password, formData.role);
+      const { confirmPassword, ...userData } = formData;
+      await register(userData);
       navigate('/projects');
       toast.success('Account created successfully!');
     } catch (error) {
@@ -151,6 +152,7 @@ const Register = () => {
               >
                 <option value="freelancer">Freelancer</option>
                 <option value="employer">Employer</option>
+                <option value="admin">Admin</option>
               </select>
             </div>
           </div>

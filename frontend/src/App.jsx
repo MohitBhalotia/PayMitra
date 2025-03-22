@@ -14,6 +14,7 @@ import AdminDashboard from './pages/AdminDashboard.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Profile from './pages/Profile.jsx';
+import ConnectStripe from './pages/ConnectStripe.jsx';
 
 const App = () => {
   return (
@@ -45,7 +46,7 @@ const App = () => {
           <Route
             path="/create-project"
             element={
-              <ProtectedRoute role="employer">
+              <ProtectedRoute allowedRoles={['employer']}>
                 <CreateProject />
               </ProtectedRoute>
             }
@@ -53,7 +54,7 @@ const App = () => {
           <Route
             path="/admin"
             element={
-              <ProtectedRoute role="admin">
+              <ProtectedRoute allowedRoles={['admin']}>
                 <AdminDashboard />
               </ProtectedRoute>
             }
@@ -63,6 +64,14 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/connect-stripe"
+            element={
+              <ProtectedRoute allowedRoles={['freelancer']}>
+                <ConnectStripe />
               </ProtectedRoute>
             }
           />
