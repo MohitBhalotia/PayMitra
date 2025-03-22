@@ -56,15 +56,10 @@ const paymentService = {
   // Get escrow details
   getEscrowDetails: async (projectId) => {
     try {
-      const response = await api.get(`/escrow/${projectId}`);
+      const response = await api.get(`/projects/${projectId}/escrow`);
       return response.data;
     } catch (error) {
-      console.error('Failed to get escrow details:', error.response?.data || error.message);
-      // If escrow not found, return null instead of throwing error
-      if (error.response?.status === 404) {
-        return null;
-      }
-      throw new Error(error.response?.data?.message || 'Failed to get escrow details');
+      throw new Error(error.response?.data?.message || 'Failed to fetch escrow details');
     }
   },
 
@@ -131,13 +126,16 @@ const paymentService = {
   // Project functions
   getProjects: async (filters = {}, sortBy = 'newest') => {
     try {
-      const response = await api.get('/projects', { params: { ...filters, sortBy } });
-      return response.data || [];
+      const queryParams = new URLSearchParams();
+      if (filters.status) queryParams.append('status', filters.status);
+      if (filters.minBudget) queryParams.append('minBudget', filters.minBudget);
+      if (filters.maxBudget) queryParams.append('maxBudget', filters.maxBudget);
+      queryParams.append('sortBy', sortBy);
+
+      const response = await api.get(`/projects?${queryParams.toString()}`);
+      return response.data;
     } catch (error) {
-      if (error.response?.status === 404) {
-        return [];
-      }
-      throw new Error(error.response?.data?.message || 'Failed to get projects');
+      throw new Error(error.response?.data?.message || 'Failed to fetch projects');
     }
   },
 
@@ -152,9 +150,7 @@ const paymentService = {
 
   applyForProject: async (projectId, proposal) => {
     try {
-      const response = await api.post(`/projects/${projectId}/apply`, {
-        proposal
-      });
+      const response = await api.post(`/projects/${projectId}/apply`, { proposal });
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to apply for project');
@@ -163,9 +159,7 @@ const paymentService = {
 
   submitMilestone: async (projectId, milestoneId, submission) => {
     try {
-      const response = await api.post(`/projects/${projectId}/milestones/${milestoneId}/submit`, {
-        submission
-      });
+      const response = await api.post(`/projects/${projectId}/milestones/${milestoneId}/submit`, submission);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to submit milestone');

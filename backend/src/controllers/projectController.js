@@ -139,6 +139,7 @@ exports.getProjects = async (req, res) => {
     const projects = await Project.find(query)
       .populate('employer', 'name email')
       .populate('freelancer', 'name email')
+      .populate('applications.freelancer', 'name email')
       .sort(sort);
 
     // Return empty array instead of 404 when no projects found

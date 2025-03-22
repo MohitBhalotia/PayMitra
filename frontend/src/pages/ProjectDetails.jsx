@@ -92,9 +92,15 @@ const ProjectDetails = () => {
     }
 
     try {
-      await paymentService.submitMilestone(id, selectedMilestone._id, submissionText);
+      const submission = {
+        description: submissionText,
+        attachments: [] // Add attachment handling if needed
+      };
+
+      await paymentService.submitMilestone(id, selectedMilestone._id, submission);
       toast.success('Milestone submitted successfully');
       setSubmissionText('');
+      setSelectedMilestone(null);
       fetchProjectDetails();
     } catch (error) {
       toast.error(error.message || 'Failed to submit milestone');
@@ -112,15 +118,34 @@ const ProjectDetails = () => {
   };
 
   const getApplicationStatus = () => {
-    if (!user || user.role !== 'freelancer') return null;
-    const application = project?.applications?.find(
-      app => app.freelancer._id === user._id
+    if (!user || !project || user.role !== 'freelancer') return null;
+
+    // Debug logging for ID comparison
+    console.log('ID Comparison:', {
+      userId: user._id,
+      projectFreelancerId: project.freelancer?._id,
+      applications: project.applications?.map(app => ({
+        freelancerId: app.freelancer?._id,
+        status: app.status
+      }))
+    });
+
+    // Check if user is assigned to this project - use strict equality
+    if (project.freelancer && project.freelancer._id && project.freelancer._id === user._id) {
+      return 'assigned';
+    }
+
+    // Check for application status - use strict equality
+    const application = project.applications?.find(
+      app => app.freelancer && app.freelancer._id && app.freelancer._id === user._id
     );
-    return application?.status;
+
+    return application?.status || null;
   };
 
-  const isAssignedToMe = user && project?.freelancer && project.freelancer._id === user._id;
-  const hasApplied = user && project?.applications?.some(app => app.freelancer._id === user._id);
+  // Update the isAssignedToMe check to be more strict
+  const isAssignedToMe = user && project?.freelancer && project.freelancer._id && project.freelancer._id === user._id;
+  const hasApplied = user && project?.applications?.some(app => app.freelancer && app.freelancer._id && app.freelancer._id === user._id);
 
   // Add debug logging
   useEffect(() => {
@@ -135,6 +160,24 @@ const ProjectDetails = () => {
       userId: user?._id
     });
   }, [user, project]);
+
+  const getStatusBadgeClass = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'open':
+        return 'bg-green-100 text-green-800';
+      case 'in_progress':
+      case 'active':
+        return 'bg-blue-100 text-blue-800';
+      case 'completed':
+        return 'bg-gray-100 text-gray-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
+      case 'disputed':
+        return 'bg-yellow-100 text-yellow-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   if (isLoading) {
     return (
@@ -178,30 +221,24 @@ const ProjectDetails = () => {
               </p>
             </div>
             <div className="flex flex-col items-end">
-              <span
-                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${project?.status === 'open'
-                  ? 'bg-green-100 text-green-800'
-                  : project?.status === 'in_progress'
-                    ? 'bg-blue-100 text-blue-800'
-                    : project?.status === 'completed'
-                      ? 'bg-gray-100 text-gray-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}
-              >
-                {project?.status?.replace('_', ' ')}
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(project?.status)}`}>
+                {project?.status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
               </span>
               {user?.role === 'freelancer' && (
                 <span className="mt-1 text-xs text-gray-500">
-                  {isAssignedToMe ? (
-                    <span className="text-green-600 font-medium">Assigned to you</span>
-                  ) : getApplicationStatus() ? (
-                    <span className={`font-medium ${getApplicationStatus() === 'pending' ? 'text-yellow-600' :
-                      getApplicationStatus() === 'approved' ? 'text-green-600' :
-                        'text-red-600'
-                      }`}>
-                      {getApplicationStatus().charAt(0).toUpperCase() + getApplicationStatus().slice(1)}
-                    </span>
-                  ) : null}
+                  {(() => {
+                    const status = getApplicationStatus();
+                    if (status === 'assigned') {
+                      return <span className="text-green-600 font-medium">Assigned to you</span>;
+                    } else if (status === 'pending') {
+                      return <span className="text-yellow-600 font-medium">Application pending</span>;
+                    } else if (status === 'approved') {
+                      return <span className="text-green-600 font-medium">Application approved</span>;
+                    } else if (status === 'rejected') {
+                      return <span className="text-red-600 font-medium">Application rejected</span>;
+                    }
+                    return null;
+                  })()}
                 </span>
               )}
             </div>

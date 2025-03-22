@@ -55,8 +55,20 @@ const ProjectsList = () => {
 
     // Check for application status
     const application = project.applications?.find(
-      app => app.freelancer && app.freelancer._id === user._id
+      app => app.freelancer && app.freelancer._id && app.freelancer._id === user._id
     );
+
+    // Debug log to verify the comparison
+    if (project.applications && project.applications.length > 0) {
+      console.log('Application check:', {
+        userId: user._id,
+        applications: project.applications.map(app => ({
+          freelancerId: app.freelancer?._id,
+          status: app.status
+        }))
+      });
+    }
+
     return application?.status || null;
   };
 
@@ -189,9 +201,9 @@ const ProjectsList = () => {
               </div>
               <div className="flex flex-col items-end">
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${project.status === 'open' ? 'bg-green-100 text-green-800' :
-                    project.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                      project.status === 'completed' ? 'bg-gray-100 text-gray-800' :
-                        'bg-red-100 text-red-800'
+                  project.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                    project.status === 'completed' ? 'bg-gray-100 text-gray-800' :
+                      'bg-red-100 text-red-800'
                   }`}>
                   {project.status?.replace('_', ' ')}
                 </span>
