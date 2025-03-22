@@ -2,12 +2,12 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 require('dotenv').config();
-const authRoutes = require('./src/routes/auth');
-const projectRoutes = require('./src/routes/projects');
-const stripeRoutes = require('./src/routes/stripe');
-const adminRoutes = require('./src/routes/admin');
-const disputeRoutes = require('./src/routes/disputes');
-const escrowRoutes = require('./src/routes/escrow');
+const authRoutes = require('../src/routes/auth');
+const projectRoutes = require('../src/routes/projects');
+const stripeRoutes = require('../src/routes/stripe');
+const adminRoutes = require('../src/routes/admin');
+const disputeRoutes = require('../src/routes/disputes');
+const escrowRoutes = require('../src/routes/escrow');
 
 
 // Create Express app

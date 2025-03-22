@@ -2,7 +2,7 @@
   "name": "paymitra-backend",
   "version": "1.0.0",
   "description": "Backend server for PayMitra - A freelancer payment platform",
-  "main": "src/server.js",
+  "main": "api/server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
