@@ -8,12 +8,13 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null)
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // Check auth status on mount
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    setToken(localStorage.getItem('token'));
     if (token) {
       // Set the token in axios defaults
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -49,6 +50,7 @@ export const AuthProvider = ({ children }) => {
       // Set the token in axios defaults
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
+      setToken(token)
       return user;
     } catch (error) {
       console.error('Login error:', error.response?.data || error.message);
@@ -65,6 +67,7 @@ export const AuthProvider = ({ children }) => {
       // Set the token in axios defaults
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
+      setToken(token)
       return user;
     } catch (error) {
       console.error('Registration error:', error.response?.data || error.message);
@@ -78,6 +81,7 @@ export const AuthProvider = ({ children }) => {
     // Remove the token from axios defaults
     delete axios.defaults.headers.common['Authorization'];
     setUser(null);
+    setToken(null)
     setError(null);
   };
 
@@ -95,6 +99,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
+    token,
     isLoading,
     error,
     login,

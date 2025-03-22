@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 
 const Layout = ({ children }) => {
-  const { user, logout } = useAuth();
+  const { user,token, logout } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -54,7 +54,7 @@ const Layout = ({ children }) => {
 
             {/* User menu */}
             <div className="hidden sm:ml-6 sm:flex sm:items-center">
-              {user ? (
+              {token ? (
                 <div className="ml-3 relative">
                   <div className="flex items-center space-x-4">
                     <Link
