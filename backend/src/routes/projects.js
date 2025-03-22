@@ -54,7 +54,7 @@ router.get('/all', async (req, res) => {
   try {
     const projects = await Project.find()
       .populate('employer', 'name email')
-      .populate('assignedTo', 'name email')
+      .populate('freelancer', 'name email')
       .sort({ createdAt: -1 });
     res.json(projects);
   } catch (error) {
@@ -68,7 +68,7 @@ router.get('/:id', async (req, res) => {
   try {
     const project = await Project.findById(req.params.id)
       .populate('employer', 'name email')
-      .populate('assignedTo', 'name email');
+      .populate('freelancer', 'name email');
     
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
@@ -140,11 +140,11 @@ router.post('/:id/apply', auth, async (req, res) => {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    if (project.assignedTo) {
+    if (project.freelancer) {
       return res.status(400).json({ message: 'Project already assigned' });
     }
 
-    project.assignedTo = req.user.id;
+    project.freelancer = req.user.id;
     project.status = 'in_progress';
     await project.save();
 
@@ -165,7 +165,7 @@ router.post('/:id/milestones/:milestoneId/submit', auth, async (req, res) => {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    if (project.assignedTo.toString() !== req.user.id) {
+    if (project.freelancer.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -258,7 +258,7 @@ router.get('/:projectId/escrow', auth, async (req, res) => {
     // First check if the project exists
     const project = await Project.findById(req.params.projectId)
       .populate('employer', 'name email')
-      .populate('assignedTo', 'name email');
+      .populate('freelancer', 'name email');
     
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
@@ -267,7 +267,7 @@ router.get('/:projectId/escrow', auth, async (req, res) => {
     console.log('Project details:', {
       id: project._id,
       employer: project.employer,
-      assignedTo: project.assignedTo,
+      freelancer: project.freelancer,
       status: project.status
     });
 
@@ -292,7 +292,7 @@ router.get('/:projectId/escrow', auth, async (req, res) => {
     const isAdmin = req.user.role === 'admin';
     const isEmployer = escrow.employer._id.toString() === req.user.id;
     const isFreelancer = escrow.freelancer && escrow.freelancer._id.toString() === req.user.id;
-    const isProjectFreelancer = project.assignedTo && project.assignedTo.toString() === req.user.id;
+    const isProjectFreelancer = project.freelancer && project.freelancer.toString() === req.user.id;
 
     console.log('Authorization check:', {
       isAdmin,
@@ -302,7 +302,7 @@ router.get('/:projectId/escrow', auth, async (req, res) => {
       userId: req.user.id,
       employerId: escrow.employer._id,
       freelancerId: escrow.freelancer?._id,
-      projectAssignedTo: project.assignedTo
+      projectFreelancer: project.freelancer
     });
 
     if (!isAdmin && !isEmployer && !isFreelancer && !isProjectFreelancer) {

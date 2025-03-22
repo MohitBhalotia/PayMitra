@@ -122,7 +122,7 @@ const ProjectDetails = () => {
 
     // Debug logging for ID comparison
     console.log('ID Comparison:', {
-      userId: user.id,
+      userId: user._id,
       projectFreelancerId: project.freelancer?._id,
       applications: project.applications?.map(app => ({
         freelancerId: app.freelancer?._id,
@@ -131,13 +131,13 @@ const ProjectDetails = () => {
     });
 
     // Check if user is assigned to this project - use strict equality with correct ID field
-    if (project.freelancer && project.freelancer._id && project.freelancer._id === user.id) {
+    if (project.freelancer && project.freelancer._id && project.freelancer._id === user._id) {
       return 'assigned';
     }
 
     // Check for application status - use strict equality with correct ID field
     const application = project.applications?.find(
-      app => app.freelancer && app.freelancer._id && app.freelancer._id === user.id
+      app => app.freelancer && app.freelancer._id && app.freelancer._id === user._id
     );
 
     return application?.status || null;
