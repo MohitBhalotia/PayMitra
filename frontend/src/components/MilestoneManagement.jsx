@@ -6,6 +6,8 @@ const MilestoneManagement = ({ project, onMilestoneUpdate }) => {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [selectedMilestone, setSelectedMilestone] = useState(null);
 
   const handleSubmitMilestone = async (milestoneId, submission) => {
     setIsSubmitting(true);
@@ -87,6 +89,37 @@ const MilestoneManagement = ({ project, onMilestoneUpdate }) => {
     }
   };
 
+  const handleRaiseDispute = async (milestoneId) => {
+    try {
+      const reason = prompt('Please provide a reason for the dispute:');
+      if (!reason) return;
+
+      const description = prompt('Please provide additional details for the dispute:');
+      if (!description) return;
+
+      const response = await fetch(`/api/projects/${project._id}/disputes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          milestoneId,
+          reason,
+          description
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to raise dispute');
+      }
+
+      toast.success('Dispute raised successfully');
+    } catch (error) {
+      console.error('Error raising dispute:', error);
+      toast.error('Failed to raise dispute');
+    }
+  };
+
   const isEmployer = user?.id === project.employer;
   const isFreelancer = user?.id === project.freelancer;
 
@@ -106,7 +139,7 @@ const MilestoneManagement = ({ project, onMilestoneUpdate }) => {
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
               {milestone.status === 'pending' && isFreelancer && (
                 <button
                   onClick={() => handleSubmitMilestone(milestone._id, {})}
@@ -118,7 +151,7 @@ const MilestoneManagement = ({ project, onMilestoneUpdate }) => {
               )}
 
               {milestone.status === 'submitted' && isEmployer && (
-                <div className="flex gap-4">
+                <>
                   <button
                     onClick={() => handleApproveMilestone(milestone._id)}
                     disabled={isApproving}
@@ -132,8 +165,18 @@ const MilestoneManagement = ({ project, onMilestoneUpdate }) => {
                   >
                     Reject
                   </button>
-                </div>
+                </>
               )}
+
+              {(milestone.status === 'rejected' || milestone.status === 'disputed') &&
+                (isEmployer || isFreelancer) && (
+                  <button
+                    onClick={() => handleRaiseDispute(milestone._id)}
+                    className="bg-yellow-600 text-white px-6 py-2 rounded hover:bg-yellow-700"
+                  >
+                    Raise Dispute
+                  </button>
+                )}
             </div>
           </div>
 
@@ -157,6 +200,13 @@ const MilestoneManagement = ({ project, onMilestoneUpdate }) => {
               )}
             </div>
           )}
+
+          {milestone.status === 'rejected' && milestone.feedback && (
+            <div className="mt-4 bg-red-50 p-4 rounded-md">
+              <h4 className="font-semibold text-red-700">Rejection Feedback</h4>
+              <p className="text-red-600 mt-1">{milestone.feedback.comment}</p>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -173,6 +223,8 @@ const getStatusColor = (status) => {
       return 'text-green-600';
     case 'rejected':
       return 'text-red-600';
+    case 'disputed':
+      return 'text-orange-600';
     case 'released':
       return 'text-purple-600';
     default:

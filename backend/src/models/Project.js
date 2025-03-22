@@ -90,7 +90,8 @@ const projectSchema = new mongoose.Schema({
           "submitted",
           "approved",
           "rejected",
-          "paid",
+          "disputed",
+          "paid"
         ],
         default: "pending",
       },
@@ -107,7 +108,12 @@ const projectSchema = new mongoose.Schema({
         comment: String,
         revisionRequested: Boolean,
         revisionNotes: String,
+        rejectedAt: Date
       },
+      dispute: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Dispute"
+      }
     },
   ],
   totalPaid: {

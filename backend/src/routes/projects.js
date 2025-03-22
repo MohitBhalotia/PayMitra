@@ -18,6 +18,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const upload = require('../middleware/upload');
 const { uploadToCloudinary } = require('../utils/cloudinary');
 const Application = require('../models/Application');
+const Dispute = require('../models/Dispute');
 
 // Validation middleware
 const projectValidation = [
@@ -474,6 +475,88 @@ router.post('/:id/reject', auth, async (req, res) => {
   } catch (error) {
     console.error('Reject Project Error:', error);
     res.status(500).json({ message: 'Failed to reject project' });
+  }
+});
+
+// Create milestone dispute
+router.post('/:id/disputes', auth, async (req, res) => {
+  try {
+    const { milestoneId, reason, description } = req.body;
+    const project = await Project.findById(req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Check if user is either employer or freelancer
+    if (project.employer.toString() !== req.user.id && 
+        project.freelancer.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const milestone = project.milestones.id(milestoneId);
+    if (!milestone) {
+      return res.status(404).json({ message: 'Milestone not found' });
+    }
+
+    // Check if milestone is in a state where dispute can be raised
+    if (!['rejected', 'disputed'].includes(milestone.status)) {
+      return res.status(400).json({ message: 'Cannot raise dispute for this milestone status' });
+    }
+
+    // Create new dispute
+    const dispute = new Dispute({
+      project: project._id,
+      milestone: milestoneId,
+      raisedBy: req.user.id,
+      reason,
+      description,
+      status: 'pending'
+    });
+
+    await dispute.save();
+
+    // Update milestone status
+    milestone.status = 'disputed';
+    milestone.dispute = dispute._id;
+    await project.save();
+
+    res.status(201).json({ message: 'Dispute created successfully', dispute });
+  } catch (error) {
+    console.error('Create Dispute Error:', error);
+    res.status(500).json({ message: 'Failed to create dispute' });
+  }
+});
+
+// Get milestone disputes
+router.get('/:id/milestones/:milestoneId/disputes', auth, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Check if user is either employer, freelancer or admin
+    if (project.employer.toString() !== req.user.id && 
+        project.freelancer.toString() !== req.user.id &&
+        req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const milestone = project.milestones.id(req.params.milestoneId);
+    if (!milestone) {
+      return res.status(404).json({ message: 'Milestone not found' });
+    }
+
+    const disputes = await Dispute.find({ milestone: req.params.milestoneId })
+      .populate('raisedBy', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json(disputes);
+  } catch (error) {
+    console.error('Get Disputes Error:', error);
+    res.status(500).json({ message: 'Failed to get disputes' });
   }
 });
 
