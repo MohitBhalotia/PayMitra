@@ -144,8 +144,8 @@ const ProjectDetails = () => {
   };
 
   // Update the isAssignedToMe check to use correct ID field
-  const isAssignedToMe = user && project?.freelancer && project.freelancer._id && project.freelancer._id === user.id;
-  const hasApplied = user && project?.applications?.some(app => app.freelancer && app.freelancer._id && app.freelancer._id === user.id);
+  const isAssignedToMe = user && project?.freelancer && project.freelancer._id && project.freelancer._id === user._id;
+  const hasApplied = user && project?.applications?.some(app => app.freelancer && app.freelancer._id && app.freelancer._id === user._id);
 
   // Add debug logging
   useEffect(() => {
@@ -157,7 +157,8 @@ const ProjectDetails = () => {
       user,
       project,
       freelancer: project?.freelancer,
-      userId: user?.id
+      userId: user?._id,
+      projectFreelancerId: project?.freelancer?._id
     });
   }, [user, project]);
 

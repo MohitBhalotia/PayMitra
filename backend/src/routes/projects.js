@@ -13,6 +13,7 @@ const {
   approveApplication
 } = require('../controllers/projectController');
 const Project = require('../models/Project');
+const Escrow = require('../models/Escrow');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // Validation middleware
@@ -106,6 +107,23 @@ router.post('/', auth, async (req, res) => {
     });
 
     await project.save();
+
+    // Create escrow record
+    const escrow = new Escrow({
+      project: project._id,
+      amount: budget,
+      employer: req.user.id,
+      status: 'pending',
+      paymentIntentId: paymentIntent.id,
+      milestones: milestones.map(milestone => ({
+        milestoneId: milestone._id,
+        amount: milestone.amount,
+        status: 'pending'
+      }))
+    });
+
+    await escrow.save();
+
     res.status(201).json(project);
   } catch (error) {
     console.error('Create Project Error:', error);
@@ -224,6 +242,90 @@ router.post('/:id/dispute', auth, async (req, res) => {
   } catch (error) {
     console.error('Create Dispute Error:', error);
     res.status(500).json({ message: 'Failed to create dispute' });
+  }
+});
+
+// Get escrow details for a project
+router.get('/:projectId/escrow', auth, async (req, res) => {
+  try {
+    console.log('Fetching escrow for project:', req.params.projectId);
+    console.log('Current user:', {
+      id: req.user.id,
+      role: req.user.role,
+      email: req.user.email
+    });
+    
+    // First check if the project exists
+    const project = await Project.findById(req.params.projectId)
+      .populate('employer', 'name email')
+      .populate('assignedTo', 'name email');
+    
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    console.log('Project details:', {
+      id: project._id,
+      employer: project.employer,
+      assignedTo: project.assignedTo,
+      status: project.status
+    });
+
+    const escrow = await Escrow.findOne({ project: req.params.projectId })
+      .populate('project')
+      .populate('employer', 'name email')
+      .populate('freelancer', 'name email');
+
+    if (!escrow) {
+      console.log('No escrow found for project:', req.params.projectId);
+      return res.status(404).json({ message: 'Escrow not found' });
+    }
+
+    console.log('Escrow details:', {
+      id: escrow._id,
+      employer: escrow.employer,
+      freelancer: escrow.freelancer,
+      status: escrow.status
+    });
+
+    // Check if user is authorized to view escrow details
+    const isAdmin = req.user.role === 'admin';
+    const isEmployer = escrow.employer._id.toString() === req.user.id;
+    const isFreelancer = escrow.freelancer && escrow.freelancer._id.toString() === req.user.id;
+    const isProjectFreelancer = project.assignedTo && project.assignedTo.toString() === req.user.id;
+
+    console.log('Authorization check:', {
+      isAdmin,
+      isEmployer,
+      isFreelancer,
+      isProjectFreelancer,
+      userId: req.user.id,
+      employerId: escrow.employer._id,
+      freelancerId: escrow.freelancer?._id,
+      projectAssignedTo: project.assignedTo
+    });
+
+    if (!isAdmin && !isEmployer && !isFreelancer && !isProjectFreelancer) {
+      return res.status(403).json({ 
+        message: 'Not authorized to view escrow details',
+        details: 'User must be admin, employer, or assigned freelancer',
+        userRole: req.user.role,
+        userId: req.user.id
+      });
+    }
+
+    console.log('Successfully fetched escrow details');
+    res.json(escrow);
+  } catch (error) {
+    console.error('Get Escrow Error:', {
+      message: error.message,
+      stack: error.stack,
+      projectId: req.params.projectId
+    });
+    res.status(500).json({ 
+      message: 'Failed to fetch escrow details',
+      error: error.message 
+    });
   }
 });
 
