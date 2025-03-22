@@ -408,4 +408,39 @@ router.get('/:projectId/escrow', auth, async (req, res) => {
   }
 });
 
+// Reject project
+router.post('/:id/reject', auth, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const project = await Project.findById(req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Check if user is the employer
+    if (project.employer.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Only the employer can reject the project' });
+    }
+
+    // Check if project is in a valid state for rejection
+    if (!['active', 'in_progress'].includes(project.status)) {
+      return res.status(400).json({ message: 'Project cannot be rejected in its current state' });
+    }
+
+    project.status = 'rejected';
+    project.rejection = {
+      reason,
+      rejectedAt: new Date(),
+      rejectedBy: req.user.id
+    };
+
+    await project.save();
+    res.json(project);
+  } catch (error) {
+    console.error('Reject Project Error:', error);
+    res.status(500).json({ message: 'Failed to reject project' });
+  }
+});
+
 module.exports = router; 

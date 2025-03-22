@@ -21,6 +21,59 @@ const ProjectDetails = ({ project, onProjectUpdate }) => {
     onProjectUpdate(updatedProject);
   };
 
+  const handleRejectProject = async () => {
+    try {
+      const reason = prompt('Please provide a reason for rejecting the project:');
+      if (!reason) return;
+
+      const response = await fetch(`/api/projects/${project._id}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reason }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to reject project');
+      }
+
+      const updatedProject = await response.json();
+      onProjectUpdate(updatedProject);
+    } catch (error) {
+      console.error('Error rejecting project:', error);
+      alert('Failed to reject project');
+    }
+  };
+
+  const handleRaiseDispute = async () => {
+    try {
+      const reason = prompt('Please provide a reason for the dispute:');
+      if (!reason) return;
+
+      const description = prompt('Please provide a detailed description of the dispute:');
+      if (!description) return;
+
+      const response = await fetch(`/api/projects/${project._id}/dispute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reason, description }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to raise dispute');
+      }
+
+      const updatedProject = await response.json();
+      onProjectUpdate(updatedProject);
+    } catch (error) {
+      console.error('Error raising dispute:', error);
+      alert('Failed to raise dispute');
+    }
+  };
+
   const isEmployer = user?.id === project.employer;
   const isFreelancer = user?.id === project.freelancer;
   const isAdmin = user?.role === 'admin';
@@ -79,6 +132,34 @@ const ProjectDetails = ({ project, onProjectUpdate }) => {
           project={project}
           onMilestoneUpdate={handleMilestoneUpdate}
         />
+      )}
+
+      {isEmployer && project.status === 'active' && (
+        <div className="bg-white shadow rounded-lg p-6 mt-4">
+          <h2 className="text-2xl font-bold mb-4">Project Actions</h2>
+          <div className="space-y-4">
+            <button
+              onClick={() => handleRejectProject()}
+              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+            >
+              Reject Project
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(isEmployer || isFreelancer) && ['active', 'rejected'].includes(project.status) && (
+        <div className="bg-white shadow rounded-lg p-6 mt-4">
+          <h2 className="text-2xl font-bold mb-4">Dispute Actions</h2>
+          <div className="space-y-4">
+            <button
+              onClick={() => handleRaiseDispute()}
+              className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700"
+            >
+              Raise Dispute
+            </button>
+          </div>
+        </div>
       )}
 
       {isAdmin && (

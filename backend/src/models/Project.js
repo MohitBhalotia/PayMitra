@@ -49,7 +49,7 @@ const projectSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["open", "active", "in_progress", "completed", "cancelled"],
+    enum: ["open", "active", "in_progress", "completed", "cancelled", "rejected", "disputed"],
     default: "open",
   },
   category: {
@@ -129,7 +129,15 @@ const projectSchema = new mongoose.Schema({
     default: Date.now,
   },
   paymentIntentId: String,
-  escrowId: String
+  escrowId: String,
+  rejection: {
+    reason: String,
+    rejectedAt: Date,
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    }
+  },
 }, {
   timestamps: true
 });
