@@ -44,6 +44,24 @@ const ProjectsList = () => {
     setSortBy(e.target.value);
   };
 
+  const getApplicationStatus = (project) => {
+    if (!user || user.role !== 'freelancer') return null;
+
+    // First check if the project is assigned to the current user
+    if (project.freelancer?._id === user._id) {
+      return 'assigned';
+    }
+
+    // Then check if the user has applied
+    const application = project.applications?.find(
+      app => app.freelancer._id === user._id
+    );
+
+    if (!application) return null;
+
+    return application.status;
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
@@ -103,7 +121,7 @@ const ProjectsList = () => {
               htmlFor="minBudget"
               className="block text-sm font-medium text-gray-700"
             >
-              Min budget ($)
+              Min Budget
             </label>
             <input
               type="number"
@@ -112,8 +130,7 @@ const ProjectsList = () => {
               value={filters.minBudget}
               onChange={handleFilterChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              min="0"
-              step="0.01"
+              placeholder="Min budget"
             />
           </div>
 
@@ -122,7 +139,7 @@ const ProjectsList = () => {
               htmlFor="maxBudget"
               className="block text-sm font-medium text-gray-700"
             >
-              Max budget ($)
+              Max Budget
             </label>
             <input
               type="number"
@@ -131,8 +148,7 @@ const ProjectsList = () => {
               value={filters.maxBudget}
               onChange={handleFilterChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              min="0"
-              step="0.01"
+              placeholder="Max budget"
             />
           </div>
 
@@ -141,7 +157,7 @@ const ProjectsList = () => {
               htmlFor="sortBy"
               className="block text-sm font-medium text-gray-700"
             >
-              Sort by
+              Sort By
             </label>
             <select
               id="sortBy"
@@ -149,10 +165,10 @@ const ProjectsList = () => {
               onChange={handleSortChange}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             >
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="budget_high">Highest budget</option>
-              <option value="budget_low">Lowest budget</option>
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="budget_high">Highest Budget</option>
+              <option value="budget_low">Lowest Budget</option>
             </select>
           </div>
         </div>
@@ -170,18 +186,34 @@ const ProjectsList = () => {
                 <h3 className="text-lg font-medium text-gray-900">
                   {project.title}
                 </h3>
-                <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${project.status === 'open'
-                    ? 'bg-green-100 text-green-800'
-                    : project.status === 'in_progress'
-                      ? 'bg-blue-100 text-blue-800'
-                      : project.status === 'completed'
-                        ? 'bg-gray-100 text-gray-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}
-                >
-                  {project.status?.replace('_', ' ')}
-                </span>
+                <div className="flex flex-col items-end">
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${project.status === 'open'
+                      ? 'bg-green-100 text-green-800'
+                      : project.status === 'in_progress'
+                        ? 'bg-blue-100 text-blue-800'
+                        : project.status === 'completed'
+                          ? 'bg-gray-100 text-gray-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}
+                  >
+                    {project.status?.replace('_', ' ')}
+                  </span>
+                  {user?.role === 'freelancer' && (
+                    <span className="mt-1 text-xs text-gray-500">
+                      {getApplicationStatus(project) === 'assigned' ? (
+                        <span className="text-green-600 font-medium">Assigned to you</span>
+                      ) : getApplicationStatus(project) ? (
+                        <span className={`font-medium ${getApplicationStatus(project) === 'pending' ? 'text-yellow-600' :
+                          getApplicationStatus(project) === 'approved' ? 'text-green-600' :
+                            'text-red-600'
+                          }`}>
+                          {getApplicationStatus(project).charAt(0).toUpperCase() + getApplicationStatus(project).slice(1)}
+                        </span>
+                      ) : null}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <p className="mt-2 text-sm text-gray-500 line-clamp-2">
@@ -209,8 +241,8 @@ const ProjectsList = () => {
                   </span>
                 </div>
                 <div>
-                  {project.assignedTo ? (
-                    <span>Assigned to {project.assignedTo.name}</span>
+                  {project.freelancer ? (
+                    <span>Assigned to {project.freelancer.name}</span>
                   ) : (
                     <span>No freelancer assigned</span>
                   )}

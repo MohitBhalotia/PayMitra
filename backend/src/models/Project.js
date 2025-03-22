@@ -20,6 +20,26 @@ const projectSchema = new mongoose.Schema({
     ref: 'User',
     // required: true
   },
+  applications: [{
+    freelancer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    proposal: {
+      type: String,
+      required: true
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
+    appliedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   budget: {
     type: Number,
     required: true,
@@ -27,8 +47,8 @@ const projectSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['draft', 'active', 'in_progress', 'completed', 'cancelled'],
-    default: 'draft'
+    enum: ['open', 'active', 'in_progress', 'completed', 'cancelled'],
+    default: 'open'
   },
   category: {
     type: String,

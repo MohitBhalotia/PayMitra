@@ -189,15 +189,15 @@ const paymentService = {
     }
   },
 
-  applyForProject: async (projectId) => {
+  applyForProject: async (projectId, proposal) => {
     try {
       const response = await axios.post(
-        `${API_URL}/api/projects/${projectId}/apply`,
-        {},
+        `${API_URL}/projects/${projectId}/apply`,
+        { proposal },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
         }
       );
       return response.data;
@@ -276,7 +276,25 @@ const paymentService = {
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to release payment');
     }
-  }
+  },
+
+  // Approve a project application
+  approveApplication: async (projectId, applicationId) => {
+    try {
+      const response = await axios.post(
+        `${API_URL}/projects/${projectId}/applications/${applicationId}/approve`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to approve application');
+    }
+  },
 };
 
 export default paymentService;

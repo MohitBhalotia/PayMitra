@@ -218,18 +218,68 @@ exports.applyForProject = async (req, res) => {
       return res.status(400).json({ message: 'Project already has a freelancer' });
     }
 
-    // Update project with freelancer
-    project.freelancer = req.user._id;
-    project.status = 'active';
-    await project.save();
-
-    // Update escrow with freelancer
-    const escrow = await Escrow.findOne({ project: project._id });
-    if (escrow) {
-      escrow.freelancer = req.user._id;
-      await escrow.save();
+    // Check if freelancer has already applied
+    const existingApplication = project.applications.find(
+      app => app.freelancer.toString() === req.user._id.toString()
+    );
+    if (existingApplication) {
+      return res.status(400).json({ message: 'You have already applied for this project' });
     }
 
+    // Add new application
+    project.applications.push({
+      freelancer: req.user._id,
+      proposal: req.body.proposal || 'I am interested in working on this project.'
+    });
+
+    await project.save();
+    res.json(project);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Approve application (employer)
+exports.approveApplication = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.projectId);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Check if user is the employer
+    if (project.employer.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const application = project.applications.find(
+      app => app._id.toString() === req.params.applicationId
+    );
+
+    if (!application) {
+      return res.status(404).json({ message: 'Application not found' });
+    }
+
+    if (application.status !== 'pending') {
+      return res.status(400).json({ message: 'Application has already been processed' });
+    }
+
+    // Update application status
+    application.status = 'approved';
+
+    // Update project with selected freelancer
+    project.freelancer = application.freelancer;
+    project.status = 'active';
+
+    // Update other applications to rejected
+    project.applications.forEach(app => {
+      if (app._id.toString() !== application._id.toString()) {
+        app.status = 'rejected';
+      }
+    });
+
+    await project.save();
     res.json(project);
   } catch (error) {
     console.error(error);

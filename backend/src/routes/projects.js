@@ -9,7 +9,8 @@ const {
   updateProject,
   applyForProject,
   submitMilestone,
-  reviewMilestone
+  reviewMilestone,
+  approveApplication
 } = require('../controllers/projectController');
 const Project = require('../models/Project');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
@@ -43,6 +44,7 @@ router.get('/:projectId', getProject);
 router.post('/', auth, checkRole('employer'), projectValidation, createProject);
 router.put('/:projectId', auth, checkRole('employer'), isProjectParticipant, projectValidation, updateProject);
 router.post('/:projectId/apply', auth, checkRole('freelancer'), applyForProject);
+router.post('/:projectId/applications/:applicationId/approve', auth, checkRole('employer'), approveApplication);
 router.post('/:projectId/milestones/:milestoneId/submit', auth, checkRole('freelancer'), isProjectParticipant, milestoneValidation, submitMilestone);
 router.post('/:projectId/milestones/:milestoneId/review', auth, checkRole('employer'), isProjectParticipant, reviewValidation, reviewMilestone);
 
