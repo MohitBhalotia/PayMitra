@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
-const auth = require('../middleware/auth');
-const checkRole = require('../middleware/checkRole');
+const {auth, checkRole} = require('../middleware/auth');
 const adminController = require('../controllers/adminController');
 const Project = require('../models/Project');
 const User = require('../models/User');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const Escrow = require('../models/Escrow');
 
 // Validation middleware
 const releasePaymentValidation = [
@@ -36,16 +36,14 @@ router.get('/payments', auth, checkRole('admin'), adminController.getAllEscrowPa
 router.get('/payments/:escrowId', auth, checkRole('admin'), adminController.getEscrowPaymentDetails);
 router.post('/payments/release', auth, checkRole('admin'), releasePaymentValidation, adminController.releaseMilestonePayment);
 router.post('/payments/refund', auth, checkRole('admin'), refundValidation, adminController.refundEscrowPayment);
-router.get('/statistics', auth, checkRole('admin'), adminController.getPaymentStatistics);
 
-// Get all projects with their milestones
-router.get('/projects', auth, isAdmin, async (req, res) => {
+// Get all projects (admin only)
+router.get('/projects', auth, checkRole('admin'), async (req, res) => {
   try {
     const projects = await Project.find()
       .populate('employer', 'name email')
-      .populate('assignedTo', 'name email stripeAccountId')
+      .populate('freelancer', 'name email')
       .sort({ createdAt: -1 });
-    
     res.json(projects);
   } catch (error) {
     console.error('Admin Projects Error:', error);
@@ -53,33 +51,34 @@ router.get('/projects', auth, isAdmin, async (req, res) => {
   }
 });
 
-// Get payment statistics
-router.get('/statistics', auth, isAdmin, async (req, res) => {
+// Get payment statistics (admin only)
+router.get('/statistics', auth, checkRole('admin'), async (req, res) => {
   try {
-    const [
-      totalProjects,
-      totalFreelancers,
-      totalEmployers,
-      totalEscrowAmount
-    ] = await Promise.all([
-      Project.countDocuments(),
-      User.countDocuments({ role: 'freelancer' }),
-      User.countDocuments({ role: 'employer' }),
-      Project.aggregate([
-        {
-          $group: {
-            _id: null,
-            total: { $sum: '$budget' }
-          }
+    const totalProjects = await Project.countDocuments();
+    const totalFreelancers = await User.countDocuments({ role: 'freelancer' });
+    const totalEmployers = await User.countDocuments({ role: 'employer' });
+    
+    // Calculate total escrow amount
+    const escrows = await Escrow.find();
+    const totalEscrowAmount = escrows.reduce((sum, escrow) => sum + escrow.amount, 0);
+
+    // Get payment statistics
+    const paymentStats = await Project.aggregate([
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+          totalAmount: { $sum: '$budget' }
         }
-      ])
+      }
     ]);
 
     res.json({
       totalProjects,
       totalFreelancers,
       totalEmployers,
-      totalEscrowAmount: totalEscrowAmount[0]?.total || 0
+      totalEscrowAmount,
+      paymentStats
     });
   } catch (error) {
     console.error('Admin Statistics Error:', error);

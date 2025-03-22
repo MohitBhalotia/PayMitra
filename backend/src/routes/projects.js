@@ -20,7 +20,7 @@ const projectValidation = [
   body('description').trim().notEmpty().withMessage('Description is required'),
   body('budget').isFloat({ min: 0 }).withMessage('Budget must be a positive number'),
   body('category').trim().notEmpty().withMessage('Category is required'),
-  body('skills').isArray().withMessage('Skills must be an array'),
+  body('requiredSkills').isArray().withMessage('Skills must be an array'),
   body('deadline').isISO8601().withMessage('Invalid deadline date'),
   body('milestones').isArray().withMessage('Milestones must be an array')
 ];
@@ -35,10 +35,12 @@ const reviewValidation = [
   body('feedback').optional().trim()
 ];
 
-// Routes
-router.post('/', auth ,checkRole('employer'), projectValidation, createProject);
-router.get('/', auth, getProjects);
-router.get('/:projectId', auth, isProjectParticipant, getProject);
+// Public routes
+router.get('/', getProjects);
+router.get('/:projectId', getProject);
+
+// Protected routes
+router.post('/', auth, checkRole('employer'), projectValidation, createProject);
 router.put('/:projectId', auth, checkRole('employer'), isProjectParticipant, projectValidation, updateProject);
 router.post('/:projectId/apply', auth, checkRole('freelancer'), applyForProject);
 router.post('/:projectId/milestone/:milestoneId/submit', auth, checkRole('freelancer'), isProjectParticipant, milestoneValidation, submitMilestone);

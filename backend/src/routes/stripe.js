@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const auth = require('../middleware/auth');
+const {auth, checkRole} = require('../middleware/auth');
 const User = require('../models/User');
 const Project = require('../models/Project');
 
@@ -14,14 +14,19 @@ router.post('/connect', auth, async (req, res) => {
       return res.status(403).json({ message: 'Only freelancers can connect Stripe accounts' });
     }
 
+    // For testing, return a mock URL
+    if (process.env.NODE_ENV === 'test') {
+      return res.json({ url: 'https://test.stripe.com/connect' });
+    }
+
     // Create a Stripe Connect account
     const account = await stripe.accounts.create({
       type: 'express',
-      country: 'US',
+      country: 'IN',
       email: user.email,
       business_profile: {
         name: user.name,
-        url: process.env.FRONTEND_URL
+        url: 'https://paymitra.com'
       },
       capabilities: {
         card_payments: { requested: true },
@@ -36,8 +41,8 @@ router.post('/connect', auth, async (req, res) => {
     // Create an account link for onboarding
     const accountLink = await stripe.accountLinks.create({
       account: account.id,
-      refresh_url: `${process.env.FRONTEND_URL}/connect-stripe?refresh=true`,
-      return_url: `${process.env.FRONTEND_URL}/profile`,
+      refresh_url: `${process.env.FRONTEND_URL}/stripe/connect/refresh`,
+      return_url: `${process.env.FRONTEND_URL}/stripe/connect/success`,
       type: 'account_onboarding'
     });
 

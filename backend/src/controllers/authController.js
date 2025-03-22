@@ -3,7 +3,7 @@ const User = require('../models/User');
 const { validationResult } = require('express-validator');
 
 // Register new user
-exports.register = async (req, res) => {
+const register = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -18,22 +18,24 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    // Create new user
+    // Create new user with only required fields
     user = new User({
       name,
       email,
       password,
-      role,
-      skills,
-      bio,
-      hourlyRate
+      role
     });
+
+    // Add optional fields if provided
+    if (skills) user.skills = skills;
+    if (bio) user.bio = bio;
+    if (hourlyRate) user.hourlyRate = hourlyRate;
 
     await user.save();
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id },
+      { id: user._id },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -54,7 +56,7 @@ exports.register = async (req, res) => {
 };
 
 // Login user
-exports.login = async (req, res) => {
+const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -72,7 +74,7 @@ exports.login = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id },
+      { id: user._id },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -93,7 +95,7 @@ exports.login = async (req, res) => {
 };
 
 // Get user profile
-exports.getProfile = async (req, res) => {
+const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select('-password');
     res.json(user);
@@ -104,7 +106,7 @@ exports.getProfile = async (req, res) => {
 };
 
 // Update user profile
-exports.updateProfile = async (req, res) => {
+const updateProfile = async (req, res) => {
   try {
     const { name, bio, skills, hourlyRate } = req.body;
     const user = await User.findById(req.user._id);
@@ -123,7 +125,7 @@ exports.updateProfile = async (req, res) => {
 };
 
 // Change password
-exports.changePassword = async (req, res) => {
+const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     const user = await User.findById(req.user._id);
@@ -143,4 +145,12 @@ exports.changePassword = async (req, res) => {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
+};
+
+module.exports = {
+  register,
+  login,
+  getProfile,
+  updateProfile,
+  changePassword
 }; 
