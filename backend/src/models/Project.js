@@ -1,124 +1,139 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const projectSchema = new mongoose.Schema({
   title: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
   },
   description: {
     type: String,
-    required: true
+    required: true,
   },
   employer: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    ref: "User",
+    required: true,
   },
   freelancer: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    // required: true
+    ref: "User",
+    default: null,
   },
-  applications: [{
-    freelancer: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
+  applications: [
+    {
+      freelancer: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+      },
+      proposal: {
+        type: String,
+        required: true,
+      },
+      status: {
+        type: String,
+        enum: ["pending", "approved", "rejected"],
+        default: "pending",
+      },
+      appliedAt: {
+        type: Date,
+        default: Date.now,
+      },
     },
-    proposal: {
-      type: String,
-      required: true
-    },
-    status: {
-      type: String,
-      enum: ['pending', 'approved', 'rejected'],
-      default: 'pending'
-    },
-    appliedAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
+  ],
   budget: {
     type: Number,
     required: true,
-    min: 0
+    min: 0,
   },
   status: {
     type: String,
-    enum: ['open', 'active', 'in_progress', 'completed', 'cancelled'],
-    default: 'open'
+    enum: ["open", "active", "in_progress", "completed", "cancelled"],
+    default: "open",
   },
   category: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
   },
-  skills: [{
-    type: String,
-    trim: true
-  }],
+  skills: [
+    {
+      type: String,
+      trim: true,
+    },
+  ],
   deadline: {
     type: Date,
-    required: true
+    required: true,
   },
-  milestones: [{
-    title: {
-      type: String,
-      required: true
+  milestones: [
+    {
+      title: {
+        type: String,
+        required: true,
+      },
+      description: {
+        type: String,
+        required: true,
+      },
+      amount: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+      status: {
+        type: String,
+        enum: [
+          "pending",
+          "in_progress",
+          "submitted",
+          "approved",
+          "rejected",
+          "paid",
+        ],
+        default: "pending",
+      },
+      dueDate: {
+        type: Date,
+        required: true,
+      },
+      submission: {
+        description: String,
+        attachments: [String],
+        submittedAt: Date,
+      },
+      feedback: {
+        comment: String,
+        revisionRequested: Boolean,
+        revisionNotes: String,
+      },
     },
-    description: {
-      type: String,
-      required: true
-    },
-    amount: {
-      type: Number,
-      required: true,
-      min: 0
-    },
-    status: {
-      type: String,
-      enum: ['pending', 'in_progress', 'submitted', 'approved', 'rejected', 'paid'],
-      default: 'pending'
-    },
-    dueDate: {
-      type: Date,
-      required: true
-    },
-    submission: {
-      description: String,
-      attachments: [String],
-      submittedAt: Date
-    },
-    feedback: {
-      comment: String,
-      revisionRequested: Boolean,
-      revisionNotes: String
-    }
-  }],
+  ],
   totalPaid: {
     type: Number,
-    default: 0
+    default: 0,
   },
-  disputes: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Dispute'
-  }],
+  disputes: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Dispute",
+    },
+  ],
   createdAt: {
     type: Date,
-    default: Date.now
+    default: Date.now,
   },
   updatedAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
 // Update the updatedAt timestamp before saving
-projectSchema.pre('save', function(next) {
+projectSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
   next();
 });
 
-module.exports = mongoose.model('Project', projectSchema); 
+module.exports = mongoose.model("Project", projectSchema);

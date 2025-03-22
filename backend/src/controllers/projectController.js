@@ -40,6 +40,7 @@ exports.createProject = async (req, res) => {
       category,
       requiredSkills,
       deadline,
+      status: 'open',
       milestones: milestones.map(milestone => ({
         title: milestone.title,
         description: milestone.description,

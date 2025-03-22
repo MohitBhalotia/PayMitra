@@ -7,7 +7,9 @@ import { toast } from 'react-hot-toast';
 const ProjectDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  console.log(user);
+
   const [project, setProject] = useState(null);
   const [escrow, setEscrow] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -17,8 +19,19 @@ const ProjectDetails = () => {
   const [proposal, setProposal] = useState('');
 
   useEffect(() => {
-    fetchProjectDetails();
-  }, [id]);
+    if (!authLoading) {
+      fetchProjectDetails();
+    }
+  }, [id, authLoading]);
+
+  // Add debug logging for authentication
+  useEffect(() => {
+    console.log('Auth state:', {
+      authLoading,
+      user,
+      token: localStorage.getItem('token')
+    });
+  }, [authLoading, user]);
 
   const fetchProjectDetails = async () => {
     try {
@@ -27,8 +40,8 @@ const ProjectDetails = () => {
 
       // Only fetch escrow details if user is the employer or freelancer
       if (user && (
-        projectData.employer._id === user._id ||
-        (projectData.freelancer && projectData.freelancer._id === user._id)
+        projectData.employer._id.toString() === user._id ||
+        (projectData.freelancer && projectData.freelancer._id.toString() === user._id)
       )) {
         try {
           const escrowData = await paymentService.getEscrowDetails(id);
@@ -106,7 +119,22 @@ const ProjectDetails = () => {
     return application?.status;
   };
 
-  const isAssignedToMe = project?.freelancer?._id === user?._id;
+  const isAssignedToMe = user && project?.freelancer && project.freelancer._id === user._id;
+  const hasApplied = user && project?.applications?.some(app => app.freelancer._id === user._id);
+
+  // Add debug logging
+  useEffect(() => {
+    console.log('Debug conditions:', {
+      isFreelancer: user?.role === 'freelancer',
+      projectStatus: project?.status,
+      hasApplied,
+      isAssignedToMe,
+      user,
+      project,
+      freelancer: project?.freelancer,
+      userId: user?._id
+    });
+  }, [user, project]);
 
   if (isLoading) {
     return (
@@ -135,7 +163,6 @@ const ProjectDetails = () => {
   const isEmployer = user?.role === 'employer' && project.employer._id === user._id;
   const isFreelancer = user?.role === 'freelancer';
   const isAssignedFreelancer = project.freelancer?._id === user?._id;
-  const hasApplied = project.applications?.some(app => app.freelancer._id === user?._id);
   const canApply = isFreelancer && project.status === 'open' && !hasApplied && !isAssignedFreelancer;
 
   return (
@@ -236,7 +263,7 @@ const ProjectDetails = () => {
                   )}
                 </dl>
 
-                {user?.role === 'freelancer' && project?.status === 'open' && !isAssignedToMe && (
+                {user && user.role === 'freelancer' && project?.status === 'open' && !hasApplied && !isAssignedToMe && (
                   <div className="mt-6">
                     <textarea
                       rows={4}

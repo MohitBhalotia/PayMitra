@@ -4,6 +4,25 @@ import { loadStripe } from '@stripe/stripe-js';
 // Ensure API_URL always includes /api prefix
 const API_URL = (import.meta.env.VITE_API_URL)
 
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: `${API_URL}/api`
+});
+
+// Add request interceptor to add auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 const paymentService = {
   // Initialize Stripe
   initStripe: async () => {
@@ -14,12 +33,7 @@ const paymentService = {
   // Create payment intent for project escrow
   createProjectEscrow: async (projectData) => {
     try {
-      const response = await axios.post(`${API_URL}/api/projects`, projectData, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await api.post('/projects', projectData);
       console.log('Project creation response:', response.data);
       return response.data;
     } catch (error) {
@@ -32,15 +46,7 @@ const paymentService = {
   // Handle project payment
   handleProjectPayment: async (projectId, paymentMethodId) => {
     try {
-      const response = await axios.post(
-        `${API_URL}/api/projects/${projectId}/pay`,
-        { paymentMethodId },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
+      const response = await api.post(`/projects/${projectId}/pay`, { paymentMethodId });
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to process payment');
@@ -50,11 +56,7 @@ const paymentService = {
   // Get escrow details
   getEscrowDetails: async (projectId) => {
     try {
-      const response = await axios.get(`${API_URL}/api/escrow/${projectId}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await api.get(`/escrow/${projectId}`);
       return response.data;
     } catch (error) {
       console.error('Failed to get escrow details:', error.response?.data || error.message);
@@ -69,11 +71,7 @@ const paymentService = {
   // Get payment history
   getPaymentHistory: async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/payments/history`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await api.get('/payments/history');
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to get payment history');
@@ -83,11 +81,7 @@ const paymentService = {
   // Admin: Get all escrow payments
   getAllEscrowPayments: async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/admin/payments`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await api.get('/admin/payments');
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to get escrow payments');
@@ -97,11 +91,7 @@ const paymentService = {
   // Admin: Get payment statistics
   getPaymentStatistics: async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/admin/statistics`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await api.get('/admin/statistics');
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to get payment statistics');
@@ -111,15 +101,7 @@ const paymentService = {
   // Admin: Release milestone payment
   releaseMilestonePayment: async (escrowId, milestoneId) => {
     try {
-      const response = await axios.post(
-        `${API_URL}/api/admin/payments/release`,
-        { escrowId, milestoneId },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
+      const response = await api.post('/admin/payments/release', { escrowId, milestoneId });
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to release payment');
@@ -129,15 +111,7 @@ const paymentService = {
   // Admin: Process refund
   refundEscrowPayment: async (escrowId) => {
     try {
-      const response = await axios.post(
-        `${API_URL}/api/admin/payments/refund`,
-        { escrowId },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
+      const response = await api.post('/admin/payments/refund', { escrowId });
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to process refund');
@@ -147,11 +121,7 @@ const paymentService = {
   // Admin: Get payment details
   getEscrowPaymentDetails: async (escrowId) => {
     try {
-      const response = await axios.get(`${API_URL}/api/admin/payments/${escrowId}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await api.get(`/admin/payments/${escrowId}`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to get payment details');
@@ -161,12 +131,7 @@ const paymentService = {
   // Project functions
   getProjects: async (filters = {}, sortBy = 'newest') => {
     try {
-      const response = await axios.get(`${API_URL}/api/projects`, {
-        params: { ...filters, sortBy },
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await api.get('/projects', { params: { ...filters, sortBy } });
       return response.data || [];
     } catch (error) {
       if (error.response?.status === 404) {
@@ -178,28 +143,18 @@ const paymentService = {
 
   getProjectDetails: async (projectId) => {
     try {
-      const response = await axios.get(`${API_URL}/api/projects/${projectId}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await api.get(`/projects/${projectId}`);
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Failed to get project details');
+      throw new Error(error.response?.data?.message || 'Failed to fetch project details');
     }
   },
 
   applyForProject: async (projectId, proposal) => {
     try {
-      const response = await axios.post(
-        `${API_URL}/projects/${projectId}/apply`,
-        { proposal },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
+      const response = await api.post(`/projects/${projectId}/apply`, {
+        proposal
+      });
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to apply for project');
@@ -208,15 +163,9 @@ const paymentService = {
 
   submitMilestone: async (projectId, milestoneId, submission) => {
     try {
-      const response = await axios.post(
-        `${API_URL}/api/projects/${projectId}/milestones/${milestoneId}/submit`,
-        { submission },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
+      const response = await api.post(`/projects/${projectId}/milestones/${milestoneId}/submit`, {
+        submission
+      });
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to submit milestone');
@@ -225,15 +174,7 @@ const paymentService = {
 
   approveMilestone: async (projectId, milestoneId) => {
     try {
-      const response = await axios.post(
-        `${API_URL}/api/projects/${projectId}/milestones/${milestoneId}/approve`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
+      const response = await api.post(`/projects/${projectId}/milestones/${milestoneId}/approve`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to approve milestone');
@@ -243,9 +184,7 @@ const paymentService = {
   // Create a Stripe Connect account for a freelancer
   createStripeConnectAccount: async () => {
     try {
-      const response = await axios.post(`${API_URL}/api/stripe/connect`, {}, {
-        withCredentials: true
-      });
+      const response = await api.post('/stripe/connect', {}, { withCredentials: true });
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to create Stripe Connect account');
@@ -255,9 +194,7 @@ const paymentService = {
   // Get the status of a freelancer's Stripe Connect account
   getStripeConnectStatus: async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/stripe/connect/status`, {
-        withCredentials: true
-      });
+      const response = await api.get('/stripe/connect/status', { withCredentials: true });
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to get Stripe Connect status');
@@ -267,11 +204,7 @@ const paymentService = {
   // Release payment to freelancer
   releasePayment: async (projectId, milestoneId) => {
     try {
-      const response = await axios.post(
-        `${API_URL}/api/stripe/release-payment`,
-        { projectId, milestoneId },
-        { withCredentials: true }
-      );
+      const response = await api.post('/stripe/release-payment', { projectId, milestoneId }, { withCredentials: true });
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to release payment');
@@ -281,15 +214,7 @@ const paymentService = {
   // Approve a project application
   approveApplication: async (projectId, applicationId) => {
     try {
-      const response = await axios.post(
-        `${API_URL}/projects/${projectId}/applications/${applicationId}/approve`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
+      const response = await api.post(`/projects/${projectId}/applications/${applicationId}/approve`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to approve application');

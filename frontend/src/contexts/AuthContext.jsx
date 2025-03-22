@@ -9,33 +9,44 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null)
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // Check auth status on mount
   useEffect(() => {
-    setToken(localStorage.getItem('token'));
-    if (token) {
-      // Set the token in axios defaults
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      // Fetch user data
-      axios.get(`${API_URL}/api/auth/me`)
-        .then(response => {
-          setUser(response.data.user);
-        })
-        .catch(error => {
-          console.error('Auth check error:', error);
-          // If token is invalid, clear it
-          localStorage.removeItem('token');
-          delete axios.defaults.headers.common['Authorization'];
-          setError(error.response?.data?.message || 'Authentication failed');
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    } else {
-      setIsLoading(false);
-    }
+    const token = localStorage.getItem('token');
+    console.log('Current token:', token);
+
+    const checkAuth = async () => {
+      try {
+        if (token) {
+          // Set default authorization header
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+          const response = await axios.get(`${API_URL}/api/auth/me`, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+          console.log('Auth response:', response.data);
+          // The response.data is already the user object, no need to access .user
+          setUser(response.data);
+          setToken(token);
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Auth error:', error);
+        localStorage.removeItem('token');
+        delete axios.defaults.headers.common['Authorization'];
+        setUser(null);
+        setToken(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
   }, []);
 
   const login = async (email, password) => {
@@ -44,18 +55,14 @@ export const AuthProvider = ({ children }) => {
         email,
         password
       });
-
       const { token, user } = response.data;
       localStorage.setItem('token', token);
-      // Set the token in axios defaults
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setToken(token);
       setUser(user);
-      setToken(token)
       return user;
     } catch (error) {
-      console.error('Login error:', error.response?.data || error.message);
-      setError(error.response?.data?.message || 'Login failed');
-      throw error;
+      throw new Error(error.response?.data?.message || 'Login failed');
     }
   };
 
@@ -64,10 +71,7 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.post(`${API_URL}/api/auth/register`, userData);
       const { token, user } = response.data;
       localStorage.setItem('token', token);
-      // Set the token in axios defaults
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
-      setToken(token)
       return user;
     } catch (error) {
       console.error('Registration error:', error.response?.data || error.message);
@@ -78,11 +82,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
-    // Remove the token from axios defaults
-    delete axios.defaults.headers.common['Authorization'];
     setUser(null);
-    setToken(null)
-    setError(null);
   };
 
   const updateProfile = async (profileData) => {
@@ -100,7 +100,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     token,
-    isLoading,
+    loading,
     error,
     login,
     register,
@@ -110,7 +110,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {!isLoading && children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
