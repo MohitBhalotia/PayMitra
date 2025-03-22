@@ -46,7 +46,14 @@ const userSchema = new mongoose.Schema({
     default: 0
   },
   stripeAccountId: {
-    type: String
+    type: String,
+    sparse: true,
+    unique: true
+  },
+  stripeAccountStatus: {
+    type: String,
+    enum: ['pending', 'active', 'rejected'],
+    default: 'pending'
   },
   isVerified: {
     type: Boolean,

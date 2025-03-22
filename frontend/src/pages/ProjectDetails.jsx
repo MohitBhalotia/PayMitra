@@ -122,7 +122,7 @@ const ProjectDetails = () => {
 
     // Debug logging for ID comparison
     console.log('ID Comparison:', {
-      userId: user._id,
+      userId: user.id,
       projectFreelancerId: project.freelancer?._id,
       applications: project.applications?.map(app => ({
         freelancerId: app.freelancer?._id,
@@ -130,22 +130,22 @@ const ProjectDetails = () => {
       }))
     });
 
-    // Check if user is assigned to this project - use strict equality
-    if (project.freelancer && project.freelancer._id && project.freelancer._id === user._id) {
+    // Check if user is assigned to this project - use strict equality with correct ID field
+    if (project.freelancer && project.freelancer._id && project.freelancer._id === user.id) {
       return 'assigned';
     }
 
-    // Check for application status - use strict equality
+    // Check for application status - use strict equality with correct ID field
     const application = project.applications?.find(
-      app => app.freelancer && app.freelancer._id && app.freelancer._id === user._id
+      app => app.freelancer && app.freelancer._id && app.freelancer._id === user.id
     );
 
     return application?.status || null;
   };
 
-  // Update the isAssignedToMe check to be more strict
-  const isAssignedToMe = user && project?.freelancer && project.freelancer._id && project.freelancer._id === user._id;
-  const hasApplied = user && project?.applications?.some(app => app.freelancer && app.freelancer._id && app.freelancer._id === user._id);
+  // Update the isAssignedToMe check to use correct ID field
+  const isAssignedToMe = user && project?.freelancer && project.freelancer._id && project.freelancer._id === user.id;
+  const hasApplied = user && project?.applications?.some(app => app.freelancer && app.freelancer._id && app.freelancer._id === user.id);
 
   // Add debug logging
   useEffect(() => {
@@ -157,7 +157,7 @@ const ProjectDetails = () => {
       user,
       project,
       freelancer: project?.freelancer,
-      userId: user?._id
+      userId: user?.id
     });
   }, [user, project]);
 
@@ -379,7 +379,8 @@ const ProjectDetails = () => {
                         Status: {milestone.status}
                       </p>
                     </div>
-                    {isAssignedToMe && milestone.status === 'pending' && (
+                    {/* Show submit button for assigned freelancer when milestone is not completed */}
+                    {isAssignedToMe && !['submitted', 'approved', 'paid'].includes(milestone.status) && (
                       <button
                         onClick={() => setSelectedMilestone(milestone)}
                         className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -442,7 +443,10 @@ const ProjectDetails = () => {
               </div>
               <div className="mt-4 flex justify-end space-x-3">
                 <button
-                  onClick={() => setSelectedMilestone(null)}
+                  onClick={() => {
+                    setSelectedMilestone(null);
+                    setSubmissionText('');
+                  }}
                   className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Cancel

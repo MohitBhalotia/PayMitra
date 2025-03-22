@@ -15,6 +15,7 @@ import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Profile from './pages/Profile.jsx';
 import ConnectStripe from './pages/ConnectStripe.jsx';
+import StripeConnectSuccess from './pages/StripeConnectSuccess.jsx';
 
 const App = () => {
   return (
@@ -72,6 +73,14 @@ const App = () => {
             element={
               <ProtectedRoute allowedRoles={['freelancer']}>
                 <ConnectStripe />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/stripe/connect/success"
+            element={
+              <ProtectedRoute allowedRoles={['freelancer']}>
+                <StripeConnectSuccess />
               </ProtectedRoute>
             }
           />

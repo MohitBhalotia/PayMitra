@@ -76,10 +76,19 @@ const paymentService = {
   // Admin: Get all escrow payments
   getAllEscrowPayments: async () => {
     try {
-      const response = await api.get('/admin/payments');
-      return response.data;
+      // Get all projects that have milestones
+      const response = await api.get('/projects');
+      console.log('Admin projects response:', response.data); // Debug log
+      
+      // Filter projects to only include those with milestones
+      const projectsWithMilestones = response.data.filter(project => 
+        project.milestones && project.milestones.length > 0
+      );
+      
+      return { projects: projectsWithMilestones };
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Failed to get escrow payments');
+      console.error('Admin projects error:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || 'Failed to fetch payments');
     }
   },
 
@@ -94,12 +103,15 @@ const paymentService = {
   },
 
   // Admin: Release milestone payment
-  releaseMilestonePayment: async (escrowId, milestoneId) => {
+  releaseMilestonePayment: async (projectId, milestoneId) => {
     try {
-      const response = await api.post('/admin/payments/release', { escrowId, milestoneId });
-      return response.data;
+      console.log('Attempting milestone payment release:', { projectId, milestoneId }); // Debug log
+      const result = await paymentService.releasePayment(projectId, milestoneId);
+      console.log('Milestone payment release result:', result); // Debug log
+      return result;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Failed to release payment');
+      console.error('Milestone payment release error:', error);
+      throw error;
     }
   },
 
@@ -159,7 +171,10 @@ const paymentService = {
 
   submitMilestone: async (projectId, milestoneId, submission) => {
     try {
-      const response = await api.post(`/projects/${projectId}/milestones/${milestoneId}/submit`, submission);
+      const response = await api.post(
+        `/projects/${projectId}/milestones/${milestoneId}/submit`,
+        { submission }
+      );
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to submit milestone');
@@ -168,7 +183,9 @@ const paymentService = {
 
   approveMilestone: async (projectId, milestoneId) => {
     try {
-      const response = await api.post(`/projects/${projectId}/milestones/${milestoneId}/approve`);
+      const response = await api.post(
+        `/projects/${projectId}/milestones/${milestoneId}/approve`
+      );
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to approve milestone');
@@ -178,17 +195,25 @@ const paymentService = {
   // Create a Stripe Connect account for a freelancer
   createStripeConnectAccount: async () => {
     try {
-      const response = await api.post('/stripe/connect', {}, { withCredentials: true });
+      console.log('Attempting to create Stripe Connect account...');
+      const response = await api.post('/stripe/connect');
+      console.log('Stripe Connect response:', response.data);
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Failed to create Stripe Connect account');
+      console.error('Stripe Connect Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        stack: error.stack
+      });
+      throw new Error(error.response?.data?.message || error.response?.data?.error || 'Failed to create Stripe Connect account');
     }
   },
 
   // Get the status of a freelancer's Stripe Connect account
   getStripeConnectStatus: async () => {
     try {
-      const response = await api.get('/stripe/connect/status', { withCredentials: true });
+      const response = await api.get('/stripe/connect/status');
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to get Stripe Connect status');
@@ -198,10 +223,42 @@ const paymentService = {
   // Release payment to freelancer
   releasePayment: async (projectId, milestoneId) => {
     try {
-      const response = await api.post('/stripe/release-payment', { projectId, milestoneId }, { withCredentials: true });
+      // First, get the project details to check milestone status
+      const projectResponse = await api.get(`/projects/${projectId}`);
+      const project = projectResponse.data;
+      console.log('Project details:', project); // Debug log
+
+      const milestone = project.milestones?.find(m => m._id === milestoneId);
+      if (!milestone) {
+        throw new Error('Milestone not found');
+      }
+      console.log('Milestone details:', milestone); // Debug log
+
+      if (milestone.status !== 'approved') {
+        throw new Error('Milestone must be approved before payment can be released');
+      }
+
+      // Check if freelancer has Stripe account
+      if (!project.freelancer?.stripeAccountId) {
+        console.log('Freelancer details:', project.freelancer); // Debug log
+        throw new Error('Freelancer has not connected their Stripe account');
+      }
+
+      console.log('Attempting payment release:', { projectId, milestoneId }); // Debug log
+      const response = await api.post('/stripe/release-payment', { 
+        projectId, 
+        milestoneId 
+      });
+      console.log('Payment release response:', response.data); // Debug log
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Failed to release payment');
+      console.error('Payment release error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        stack: error.stack
+      });
+      throw new Error(error.response?.data?.message || error.message || 'Failed to release payment');
     }
   },
 
