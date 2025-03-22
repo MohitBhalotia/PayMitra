@@ -1,6 +1,8 @@
 const { validationResult } = require('express-validator');
 const Milestone = require('../models/milestone');
 const Project = require('../models/Project');
+const Escrow = require('../models/Escrow');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // Create a new milestone
 exports.createMilestone = async (req, res) => {
@@ -165,14 +167,41 @@ exports.approveMilestone = async (req, res) => {
             return res.status(400).json({ message: 'Milestone must be submitted before approval' });
         }
 
-        milestone.status = 'completed';
-        milestone.completedAt = Date.now();
+        // Find escrow for this project
+        const escrow = await Escrow.findOne({ project: milestone.project });
+        if (!escrow) {
+            return res.status(400).json({ message: 'No escrow found for this project' });
+        }
+
+        if (escrow.status !== 'funded') {
+            return res.status(400).json({ message: 'Escrow is not funded' });
+        }
+
+        // Find milestone in escrow
+        const escrowMilestone = escrow.milestones.find(m => m.milestoneId.toString() === milestone._id.toString());
+        if (!escrowMilestone) {
+            return res.status(400).json({ message: 'Milestone not found in escrow' });
+        }
+
+        if (escrowMilestone.status !== 'pending') {
+            return res.status(400).json({ message: 'Milestone payment already processed' });
+        }
+
+        // Update milestone status
+        milestone.status = 'approved';
+        milestone.approvedAt = Date.now();
         await milestone.save();
 
-        // Here you would typically trigger the payment process
-        // This could involve calling your payment service/Stripe
+        // Update escrow milestone status
+        escrowMilestone.status = 'pending';
+        escrowMilestone.approvedBy = req.user.id;
+        escrowMilestone.approvedAt = Date.now();
+        await escrow.save();
 
-        res.json(milestone);
+        res.json({
+            message: 'Milestone approved successfully',
+            milestone
+        });
     } catch (error) {
         res.status(500).json({ message: 'Error approving milestone', error: error.message });
     }

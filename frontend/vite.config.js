@@ -7,10 +7,10 @@ import path from 'path';
 export default defineConfig({
   plugins: [react(), svgr()],
   server: {
-    port: 3000,
+    port: 5000,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
       },

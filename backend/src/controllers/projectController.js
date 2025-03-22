@@ -1,4 +1,6 @@
 const Project = require('../models/Project');
+const Escrow = require('../models/Escrow');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { validationResult } = require('express-validator');
 
 // Create new project
@@ -6,7 +8,6 @@ exports.createProject = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log("i am here");
       return res.status(400).json({ errors: errors.array() });
     }
 
@@ -32,7 +33,37 @@ exports.createProject = async (req, res) => {
     });
 
     await project.save();
-    res.status(201).json(project);
+
+    // Create payment intent for escrow
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(budget * 100), // Convert to cents
+      currency: 'inr',
+      metadata: {
+        projectId: project._id,
+        type: 'escrow'
+      }
+    });
+
+    // Create escrow record
+    const escrow = new Escrow({
+      project: project._id,
+      amount: budget,
+      employer: req.user._id,
+      paymentIntentId: paymentIntent.id,
+      milestones: milestones.map(milestone => ({
+        milestoneId: milestone._id,
+        amount: milestone.amount,
+        status: 'pending'
+      }))
+    });
+
+    await escrow.save();
+
+    res.status(201).json({
+      project,
+      escrow,
+      clientSecret: paymentIntent.client_secret
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -125,7 +156,6 @@ exports.updateProject = async (req, res) => {
 exports.applyForProject = async (req, res) => {
   try {
     const project = await Project.findById(req.params.projectId);
-
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
@@ -134,9 +164,17 @@ exports.applyForProject = async (req, res) => {
       return res.status(400).json({ message: 'Project already has a freelancer' });
     }
 
+    // Update project with freelancer
     project.freelancer = req.user._id;
     project.status = 'active';
     await project.save();
+
+    // Update escrow with freelancer
+    const escrow = await Escrow.findOne({ project: project._id });
+    if (escrow) {
+      escrow.freelancer = req.user._id;
+      await escrow.save();
+    }
 
     res.json(project);
   } catch (error) {
