@@ -95,7 +95,7 @@ const MilestoneManagement = ({ project, onMilestoneUpdate }) => {
       <h2 className="text-2xl font-bold">Milestones</h2>
       {project.milestones.map((milestone) => (
         <div key={milestone._id} className="border rounded-lg p-6">
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col space-y-4">
             <div>
               <h3 className="text-xl font-semibold">{milestone.title}</h3>
               <p className="text-gray-600 mt-1">{milestone.description}</p>
@@ -105,33 +105,38 @@ const MilestoneManagement = ({ project, onMilestoneUpdate }) => {
                 <p>Status: <span className={`font-semibold ${getStatusColor(milestone.status)}`}>{milestone.status}</span></p>
               </div>
             </div>
-            {milestone.status === 'pending' && isFreelancer && (
-              <button
-                onClick={() => handleSubmitMilestone(milestone._id, {})}
-                disabled={isSubmitting}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Milestone'}
-              </button>
-            )}
-            {milestone.status === 'submitted' && isEmployer && (
-              <div className="flex gap-2">
+
+            <div className="flex justify-end">
+              {milestone.status === 'pending' && isFreelancer && (
                 <button
-                  onClick={() => handleApproveMilestone(milestone._id)}
-                  disabled={isApproving}
-                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+                  onClick={() => handleSubmitMilestone(milestone._id, {})}
+                  disabled={isSubmitting}
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {isApproving ? 'Approving...' : 'Approve'}
+                  {isSubmitting ? 'Submitting...' : 'Submit Milestone'}
                 </button>
-                <button
-                  onClick={() => handleRejectMilestone(milestone._id)}
-                  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-                >
-                  Reject
-                </button>
-              </div>
-            )}
+              )}
+
+              {milestone.status === 'submitted' && isEmployer && (
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => handleApproveMilestone(milestone._id)}
+                    disabled={isApproving}
+                    className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {isApproving ? 'Approving...' : 'Approve'}
+                  </button>
+                  <button
+                    onClick={() => handleRejectMilestone(milestone._id)}
+                    className="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700"
+                  >
+                    Reject
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
+
           {milestone.status === 'submitted' && (
             <div className="mt-4">
               <h4 className="font-semibold">Submission Details</h4>
@@ -166,6 +171,8 @@ const getStatusColor = (status) => {
       return 'text-blue-600';
     case 'approved':
       return 'text-green-600';
+    case 'rejected':
+      return 'text-red-600';
     case 'released':
       return 'text-purple-600';
     default:
