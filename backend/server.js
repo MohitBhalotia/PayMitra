@@ -1,15 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
+require('dotenv').config();
 const authRoutes = require('./src/routes/auth');
 const projectRoutes = require('./src/routes/projects');
 const stripeRoutes = require('./src/routes/stripe');
 const adminRoutes = require('./src/routes/admin');
 const disputeRoutes = require('./src/routes/disputes');
+const escrowRoutes = require('./src/routes/escrow');
 
-// Load environment variables
-dotenv.config();
 
 // Create Express app
 const app = express();
@@ -24,6 +23,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/stripe', stripeRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/disputes', disputeRoutes);
+app.use('/api/escrow', escrowRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

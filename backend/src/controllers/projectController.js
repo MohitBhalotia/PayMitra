@@ -1,7 +1,18 @@
 const Project = require('../models/Project');
 const Escrow = require('../models/Escrow');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { validationResult } = require('express-validator');
+
+// Initialize Stripe with error handling
+let stripe;
+try {
+  if (!process.env.STRIPE_SECRET_KEY) {    
+    throw new Error('STRIPE_SECRET_KEY is not defined in environment variables');
+  }
+  stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  console.log('Stripe initialized successfully');
+} catch (error) {
+  console.error('Failed to initialize Stripe:', error.message);
+}
 
 // Create new project
 exports.createProject = async (req, res) => {
@@ -29,49 +40,76 @@ exports.createProject = async (req, res) => {
       category,
       requiredSkills,
       deadline,
-      milestones
+      milestones: milestones.map(milestone => ({
+        title: milestone.title,
+        description: milestone.description,
+        amount: milestone.amount,
+        dueDate: milestone.dueDate,
+        status: 'pending'
+      }))
     });
 
     await project.save();
 
     // For testing, we'll skip Stripe integration
     if (process.env.NODE_ENV !== 'test') {
-      // Create payment intent for escrow
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(budget * 100), // Convert to cents
-        currency: 'inr',
-        metadata: {
-          projectId: project._id,
-          type: 'escrow'
+      try {
+        if (!stripe) {
+          throw new Error('Stripe is not properly initialized');
         }
-      });
 
-      // Create escrow record
-      const escrow = new Escrow({
-        project: project._id,
-        amount: budget,
-        employer: req.user._id,
-        paymentIntentId: paymentIntent.id,
-        milestones: milestones.map(milestone => ({
-          milestoneId: milestone._id,
-          amount: milestone.amount,
-          status: 'pending'
-        }))
-      });
+        // Debug log before Stripe call
+        console.log('Creating Stripe payment intent...');
+        console.log('Budget:', budget);
+        console.log('Amount in cents:', Math.round(budget * 100));
+        
+        // Create payment intent for escrow
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: Math.round(budget * 100), // Convert to cents
+          currency: 'inr',
+          metadata: {
+            projectId: project._id,
+            type: 'escrow'
+          }
+        });
 
-      await escrow.save();
+        // Debug log after successful Stripe call
+        console.log('Stripe payment intent created successfully:', paymentIntent.id);
 
-      return res.status(201).json({
-        project,
-        escrow,
-        clientSecret: paymentIntent.client_secret
-      });
+        // Create escrow record using MongoDB-generated milestone IDs
+        const escrow = new Escrow({
+          project: project._id,
+          amount: budget,
+          employer: req.user._id,
+          paymentIntentId: paymentIntent.id,
+          milestones: project.milestones.map(milestone => ({
+            milestoneId: milestone._id, // Use MongoDB-generated _id
+            amount: milestone.amount,
+            status: 'pending'
+          }))
+        });
+
+        await escrow.save();
+
+        return res.status(201).json({
+          project,
+          escrow,
+          clientSecret: paymentIntent.client_secret
+        });
+      } catch (stripeError) {
+        console.error('Stripe Error:', stripeError);
+        // If Stripe fails, still return the project but without escrow
+        return res.status(201).json({
+          project,
+          message: 'Project created but payment setup failed. Please try again.'
+        });
+      }
     }
 
     // For testing, return just the project
     res.status(201).json(project);
   } catch (error) {
-    console.error(error);
+    console.error('Project Creation Error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -79,24 +117,34 @@ exports.createProject = async (req, res) => {
 // Get all projects (with filters)
 exports.getProjects = async (req, res) => {
   try {
-    const { status, category, skills, employer, freelancer } = req.query;
+    const { status, category, skills, employer, freelancer, minBudget, maxBudget, sortBy } = req.query;
     const query = {};
 
     if (status) query.status = status;
     if (category) query.category = category;
-    if (skills) query.skills = { $in: skills.split(',') };
+    if (skills) query.requiredSkills = { $in: skills.split(',') };
     if (employer) query.employer = employer;
     if (freelancer) query.freelancer = freelancer;
+    if (minBudget) query.budget = { $gte: parseFloat(minBudget) };
+    if (maxBudget) query.budget = { ...query.budget, $lte: parseFloat(maxBudget) };
+
+    // Build sort object
+    let sort = { createdAt: -1 }; // Default sort
+    if (sortBy === 'budget_asc') sort = { budget: 1 };
+    if (sortBy === 'budget_desc') sort = { budget: -1 };
+    if (sortBy === 'deadline_asc') sort = { deadline: 1 };
+    if (sortBy === 'deadline_desc') sort = { deadline: -1 };
 
     const projects = await Project.find(query)
       .populate('employer', 'name email')
       .populate('freelancer', 'name email')
-      .sort({ createdAt: -1 });
+      .sort(sort);
 
-    res.json(projects);
+    // Return empty array instead of 404 when no projects found
+    res.json(projects || []);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Get Projects Error:', error);
+    res.status(500).json({ message: 'Failed to fetch projects' });
   }
 };
 

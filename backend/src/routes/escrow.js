@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
-const auth = require('../middleware/auth');
-const checkRole = require('../middleware/checkRole');
+const {auth} = require('../middleware/auth');
+const {checkRole} = require('../middleware/auth');
 const escrowController = require('../controllers/escrowController');
 
 // Validation middleware

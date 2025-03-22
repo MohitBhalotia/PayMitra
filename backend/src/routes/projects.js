@@ -43,8 +43,8 @@ router.get('/:projectId', getProject);
 router.post('/', auth, checkRole('employer'), projectValidation, createProject);
 router.put('/:projectId', auth, checkRole('employer'), isProjectParticipant, projectValidation, updateProject);
 router.post('/:projectId/apply', auth, checkRole('freelancer'), applyForProject);
-router.post('/:projectId/milestone/:milestoneId/submit', auth, checkRole('freelancer'), isProjectParticipant, milestoneValidation, submitMilestone);
-router.post('/:projectId/milestone/:milestoneId/review', auth, checkRole('employer'), isProjectParticipant, reviewValidation, reviewMilestone);
+router.post('/:projectId/milestones/:milestoneId/submit', auth, checkRole('freelancer'), isProjectParticipant, milestoneValidation, submitMilestone);
+router.post('/:projectId/milestones/:milestoneId/review', auth, checkRole('employer'), isProjectParticipant, reviewValidation, reviewMilestone);
 
 // Get all projects
 router.get('/all', async (req, res) => {

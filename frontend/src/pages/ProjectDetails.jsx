@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import paymentService  from '../services/paymentService';
+import paymentService from '../services/paymentService';
 import { toast } from 'react-hot-toast';
 
 const ProjectDetails = () => {
@@ -21,12 +21,22 @@ const ProjectDetails = () => {
 
   const fetchProjectDetails = async () => {
     try {
-      const [projectData, escrowData] = await Promise.all([
-        paymentService.getProjectDetails(id),
-        paymentService.getEscrowDetails(id)
-      ]);
+      const projectData = await paymentService.getProjectDetails(id);
       setProject(projectData);
-      setEscrow(escrowData);
+
+      // Only fetch escrow details if user is the employer or freelancer
+      if (user && (
+        projectData.employer._id === user._id ||
+        (projectData.freelancer && projectData.freelancer._id === user._id)
+      )) {
+        try {
+          const escrowData = await paymentService.getEscrowDetails(id);
+          setEscrow(escrowData);
+        } catch (error) {
+          // If escrow not found or unauthorized, just set it to null
+          setEscrow(null);
+        }
+      }
     } catch (error) {
       setError(error.message);
       toast.error(error.message);
@@ -135,14 +145,18 @@ const ProjectDetails = () => {
         <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
           <h3 className="text-lg font-medium text-gray-900">Required Skills</h3>
           <div className="mt-2 flex flex-wrap gap-2">
-            {project.requiredSkills.map((skill, index) => (
-              <span
-                key={index}
-                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-              >
-                {skill}
-              </span>
-            ))}
+            {project.requiredSkills && project.requiredSkills.length > 0 ? (
+              project.requiredSkills.map((skill, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                >
+                  {skill}
+                </span>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500">No specific skills required</p>
+            )}
           </div>
         </div>
 
@@ -151,7 +165,7 @@ const ProjectDetails = () => {
           <div className="mt-4 space-y-4">
             {project.milestones.map((milestone) => (
               <div
-                key={milestone.id}
+                key={milestone._id}
                 className="border rounded-lg p-4 bg-gray-50"
               >
                 <div className="flex justify-between items-start">
@@ -171,13 +185,12 @@ const ProjectDetails = () => {
                     </div>
                   </div>
                   <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      milestone.status === 'completed'
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${milestone.status === 'completed'
                         ? 'bg-green-100 text-green-800'
                         : milestone.status === 'pending'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}
                   >
                     {milestone.status}
                   </span>
@@ -202,7 +215,7 @@ const ProjectDetails = () => {
                             Submission: {milestone.submission}
                           </p>
                           <button
-                            onClick={() => handleApproveMilestone(milestone.id)}
+                            onClick={() => handleApproveMilestone(milestone._id)}
                             className="mt-2 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                           >
                             Approve milestone

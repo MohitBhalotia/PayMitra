@@ -1,37 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import  paymentService  from '../services/paymentService';
+import paymentService from '../services/paymentService';
 import { toast } from 'react-hot-toast';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { loadStripe } from '@stripe/stripe-js';
+
+// Initialize Stripe with error handling
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHER_KEY)
+  .then(stripe => {
+    if (!stripe) {
+      throw new Error('Failed to initialize Stripe');
+    }
+    return stripe;
+  })
+  .catch(error => {
+    console.error('Stripe initialization error:', error);
+    return null;
+  });
 
 const PaymentForm = ({ clientSecret, onSuccess }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!stripe || !elements) {
+      return;
+    }
+    // Log when Stripe is ready
+    console.log('Stripe Elements ready');
+  }, [stripe, elements]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsProcessing(true);
+    setError(null);
 
     if (!stripe || !elements) {
+      setError('Stripe is not initialized');
+      setIsProcessing(false);
       return;
     }
 
     try {
-      const { error } = await stripe.confirmCardPayment(clientSecret, {
+      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
           card: elements.getElement(CardElement),
         },
       });
 
-      if (error) {
-        toast.error(error.message);
-      } else {
+      if (stripeError) {
+        setError(stripeError.message);
+        toast.error(stripeError.message);
+      } else if (paymentIntent.status === 'succeeded') {
         toast.success('Payment successful!');
         onSuccess();
       }
     } catch (error) {
+      console.error('Payment error:', error);
+      setError('Payment failed. Please try again.');
       toast.error('Payment failed. Please try again.');
     } finally {
       setIsProcessing(false);
@@ -58,6 +87,9 @@ const PaymentForm = ({ clientSecret, onSuccess }) => {
           }}
         />
       </div>
+      {error && (
+        <div className="text-red-500 text-sm text-center">{error}</div>
+      )}
       <button
         type="submit"
         disabled={!stripe || isProcessing}
@@ -76,19 +108,15 @@ const CreateProject = () => {
     title: '',
     description: '',
     budget: '',
-    deadline: '',
+    category: '',
     requiredSkills: '',
-    milestones: [
-      {
-        title: '',
-        description: '',
-        amount: '',
-        dueDate: ''
-      }
-    ]
+    deadline: '',
+    milestones: [{ title: '', description: '', amount: '', dueDate: '' }]
   });
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [clientSecret, setClientSecret] = useState(null);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -130,7 +158,7 @@ const CreateProject = () => {
   };
 
   const validateForm = () => {
-    if (!formData.title || !formData.description || !formData.budget || !formData.deadline) {
+    if (!formData.title || !formData.description || !formData.budget || !formData.deadline || !formData.category) {
       setError('Please fill in all required fields');
       return false;
     }
@@ -162,44 +190,66 @@ const CreateProject = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setIsSubmitting(true);
+    setError(null);
 
     if (!validateForm()) {
+      setIsSubmitting(false);
       return;
     }
 
-    setIsLoading(true);
-
     try {
-      const projectData = {
+      // Format the data before sending
+      const formattedData = {
         ...formData,
-        requiredSkills: formData.requiredSkills.split(',').map((skill) => skill.trim()),
+        requiredSkills: formData.requiredSkills.split(',').map(skill => skill.trim()),
         budget: Number(formData.budget),
         deadline: new Date(formData.deadline).toISOString(),
-        milestones: formData.milestones.map((milestone) => ({
+        milestones: formData.milestones.map(milestone => ({
           ...milestone,
           amount: Number(milestone.amount),
           dueDate: new Date(milestone.dueDate).toISOString()
         }))
       };
 
-      const project = await paymentService.createProjectEscrow(projectData);
-      toast.success('Project created successfully');
-      navigate(`/projects/${project.id}`);
+      // Log the formatted data being sent
+      console.log('Submitting project data:', formattedData);
+
+      const response = await paymentService.createProjectEscrow(formattedData);
+
+      // Log the response
+      console.log('Project creation response:', response);
+
+      if (response.clientSecret) {
+        setClientSecret(response.clientSecret);
+        setShowPaymentForm(true);
+      } else {
+        toast.error('Failed to initialize payment');
+      }
     } catch (error) {
-      setError(error.message);
-      toast.error(error.message);
+      console.error('Project creation error:', error);
+      setError(error.response?.data?.message || 'Failed to create project');
+      toast.error(error.response?.data?.message || 'Failed to create project');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  return (
-    <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Project</h2>
+  const handlePaymentSuccess = () => {
+    toast.success('Project created and payment successful!');
+    navigate('/projects');
+  };
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+  if (!user) {
+    return <div>Please log in to create a project</div>;
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">Create New Project</h1>
+
+      {!showPaymentForm ? (
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label
               htmlFor="title"
@@ -216,6 +266,33 @@ const CreateProject = () => {
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               required
             />
+          </div>
+
+          <div>
+            <label
+              htmlFor="category"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Project Category
+            </label>
+            <select
+              id="category"
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              required
+            >
+              <option value="">Select a category</option>
+              <option value="Web Development">Web Development</option>
+              <option value="Mobile Development">Mobile Development</option>
+              <option value="UI/UX Design">UI/UX Design</option>
+              <option value="Graphic Design">Graphic Design</option>
+              <option value="Content Writing">Content Writing</option>
+              <option value="Digital Marketing">Digital Marketing</option>
+              <option value="Video Production">Video Production</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
 
           <div>
@@ -417,14 +494,24 @@ const CreateProject = () => {
           <div>
             <button
               type="submit"
-              disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSubmitting}
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:opacity-50"
             >
-              {isLoading ? 'Creating project...' : 'Create project'}
+              {isSubmitting ? 'Creating Project...' : 'Create Project'}
             </button>
           </div>
         </form>
-      </div>
+      ) : (
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold mb-4">Complete Payment</h2>
+          <Elements stripe={stripePromise} options={{ clientSecret }}>
+            <PaymentForm
+              clientSecret={clientSecret}
+              onSuccess={handlePaymentSuccess}
+            />
+          </Elements>
+        </div>
+      )}
     </div>
   );
 };

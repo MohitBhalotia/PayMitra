@@ -151,25 +151,39 @@ exports.getEscrowDetails = async (req, res) => {
   try {
     const { projectId } = req.params;
 
-    const escrow = await Escrow.findOne({ project: projectId })
+    // First check if the project exists
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Find the escrow record
+    const escrow = await Escrow.findOne({ project: projectId });
+
+    // If no escrow exists yet, return a 404
+    if (!escrow) {
+      return res.status(404).json({ message: 'Escrow not found for this project' });
+    }
+
+    // Populate only the fields that exist
+    const populatedEscrow = await Escrow.findOne({ project: projectId })
       .populate('employer', 'name email')
       .populate('freelancer', 'name email')
-      .populate('project', 'title');
-
-    if (!escrow) {
-      return res.status(404).json({ message: 'Escrow not found' });
-    }
+      .populate('project', 'title budget');
 
     // Check if user is involved in the project
-    if (escrow.employer._id.toString() !== req.user._id.toString() &&
-        escrow.freelancer._id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized' });
+    if (populatedEscrow.employer._id.toString() !== req.user._id.toString() &&
+        (!populatedEscrow.freelancer || populatedEscrow.freelancer._id.toString() !== req.user._id.toString())) {
+      return res.status(403).json({ message: 'Not authorized to view escrow details' });
     }
 
-    res.json(escrow);
+    res.json(populatedEscrow);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error in getEscrowDetails:', error);
+    res.status(500).json({ 
+      message: 'Server error while fetching escrow details',
+      error: error.message 
+    });
   }
 };
 
